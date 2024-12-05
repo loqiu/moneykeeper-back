@@ -25,7 +25,7 @@ env:
   ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}   # Set your Alibaba Cloud Access Key Secret
   ALIYUN_INSTANCE_ID: ${{ secrets.ALIYUN_INSTANCE_ID }} # The name of your app
   JAVA_VERSION: '17'                          # Set the Java version to use
-  DISTRIBUTION: moneykeeper-back              # Java distribution, e.g., zulu
+  DISTRIBUTION: temurin                       # Java distribution, e.g., zulu
 
 on:
   push:
