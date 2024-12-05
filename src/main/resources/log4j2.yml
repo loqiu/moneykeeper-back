@@ -1,0 +1,27 @@
+Configuration:
+  status: WARN
+  name: MyAppConfig
+  properties:
+    property:
+      name: log.pattern
+      value: "%d{yyyy-MM-dd HH:mm:ss} [%-5level] %logger{36} - %msg%n"
+
+  appenders:
+    Console:
+      name: STDOUT
+      target: SYSTEM_OUT
+      PatternLayout:
+        pattern: "${log.pattern}"
+
+  loggers:
+    Root:
+      level: info
+      appender-ref:
+        ref: STDOUT
+
+    Logger:
+      name: org.springframework
+      level: warn
+      additivity: false
+      appender-ref:
+        ref: STDOUT
