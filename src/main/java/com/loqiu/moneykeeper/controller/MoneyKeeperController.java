@@ -14,14 +14,15 @@ import org.springframework.web.bind.annotation.*;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Api(tags = "记账记录管理")
+@Tag(name = "记账记录管理", description = "记账记录的CRUD操作")
 @RestController
 @RequestMapping("/api/records")
 public class MoneyKeeperController {
@@ -31,7 +32,7 @@ public class MoneyKeeperController {
     @Autowired
     private MoneyKeeperService moneyKeeperService;
     
-    @ApiOperation("创建记账记录")
+    @Operation(summary = "创建记账记录") 
     @PostMapping
     public ResponseEntity<MoneyKeeper> createRecord(@RequestBody MoneyKeeper record) {
         logger.info("Creating record - Input - record: {}", record);
@@ -52,7 +53,7 @@ public class MoneyKeeperController {
         }
     }
     
-    @ApiOperation("根据ID获取记账记录")
+    @Operation(summary = "根据ID获取记账记录")
     @GetMapping("/{id}")
     public ResponseEntity<MoneyKeeper> getRecordById(@PathVariable Long id) {
         logger.info("Getting record - Input - recordId: {}", id);
@@ -77,7 +78,7 @@ public class MoneyKeeperController {
         }
     }
     
-    @ApiOperation("根据用户ID和日期范围获取记账记录")
+    @Operation(summary = "根据用户ID和日期范围获取记账记录")
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<MoneyKeeper>> getRecordsByUserIdAndDateRange(
             @PathVariable Long userId,
@@ -107,7 +108,7 @@ public class MoneyKeeperController {
         }
     }
 
-    @ApiOperation("根据用户ID和类型获取记账记录")
+    @Operation(summary = "根据用户ID和类型获取记账记录")
     @GetMapping("/user/{userId}/type/{type}")
     public ResponseEntity<List<MoneyKeeper>> getRecordsByUserIdAndType(
             @PathVariable Long userId,
@@ -130,7 +131,7 @@ public class MoneyKeeperController {
         }
     }
 
-    @ApiOperation("更新记账记录")
+    @Operation(summary = "更新记账记录")
     @PutMapping("/{id}")
     public ResponseEntity<MoneyKeeper> updateRecord(@PathVariable Long id, @RequestBody MoneyKeeper record) {
         logger.info("Updating record - Input - recordId: {}, record: {}", id, record);
@@ -160,7 +161,7 @@ public class MoneyKeeperController {
         }
     }
 
-    @ApiOperation("删除记账记录")
+    @Operation(summary = "删除记账记录")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteRecord(@PathVariable Long id) {
         logger.info("Deleting record - Input - recordId: {}", id);
@@ -191,7 +192,7 @@ public class MoneyKeeperController {
         }
     }
 
-    @ApiOperation("获取所有记账记录")
+    @Operation(summary = "获取所有记账记录")
     @GetMapping("/list")
     public ResponseEntity<List<MoneyKeeper>> getAllRecords() {
         logger.info("Getting all records");
@@ -207,7 +208,7 @@ public class MoneyKeeperController {
         }
     }
 
-    @ApiOperation("获取所有记账记录带分类名称")
+    @Operation(summary = "获取所有记账记录带分类名称")
     @GetMapping("/listWithCategoryName")
     public ResponseEntity<List<MoneyKeeperDTO>> getAllRecordsWithCategoryName() {
         logger.info("Getting records with category names");
@@ -223,7 +224,7 @@ public class MoneyKeeperController {
         }
     }
 
-    @ApiOperation("根据用户ID获取记账记录")
+    @Operation(summary = "根据用户ID获取记账记录")
     @GetMapping("/list/{userId}")
     public ResponseEntity<List<MoneyKeeper>> getRecordsByUserId(
             @PathVariable Long userId,
