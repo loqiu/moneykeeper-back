@@ -50,11 +50,11 @@
             <artifactId>java-jwt</artifactId>
             <version>4.4.0</version>
         </dependency>
-        <!-- 添加新的springdoc-openapi依赖 -->
+        <!-- 添加新的springdoc-openapi依赖 for springboot 3.x-->
         <dependency>
             <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-ui</artifactId>
-            <version>1.7.0</version>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.6.0</version>
         </dependency>
 
         <!-- Log4j 2.x 依赖 -->

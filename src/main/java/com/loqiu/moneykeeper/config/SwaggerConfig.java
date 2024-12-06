@@ -11,7 +11,7 @@ import io.swagger.v3.oas.models.info.Contact;
 public class SwaggerConfig {
 
     @Bean
-    public OpenAPI springShopOpenAPI() {
+    public OpenAPI moneyKeeperOpenAPI() {
         return new OpenAPI()
                 .info(apiInfo());
     }
