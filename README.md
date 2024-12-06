@@ -75,7 +75,7 @@ src/main/java/com/loqiu/moneykeeper/
 ## API文档
 
 ### 用户相关API
-```http
+```http request
 POST /api/auth/login # 用户登录
 GET /api/users/{id} # 获取用户信息
 POST /api/users # 创建用户
@@ -83,7 +83,7 @@ PUT /api/users/{id} # 更新用户信息
 DELETE /api/users/{id} # 删除用户
 ```
 ### 分类相关API
-```http
+```http request
 GET /api/categories/list # 获取所有分类
 GET /api/categories/user/{id} # 获取用户分类
 POST /api/categories/{id} # 创建分类
@@ -91,12 +91,16 @@ PUT /api/categories/{id} # 更新分类
 DELETE /api/categories/{id} # 删除分类
 ```
 ### 记账相关API
-```http
+```http request
 GET /api/records/list # 获取所有记录
 GET /api/records/list/{userId} # 获取用户记录
 POST /api/records # 创建记录
 PUT /api/records/{id} # 更新记录
 DELETE /api/records/{id} # 删除记录
+```
+### 下载Excel
+```http request
+GET /api/excel/download/{userId}  # 下载Excel
 ```
 ## 开发指南
 

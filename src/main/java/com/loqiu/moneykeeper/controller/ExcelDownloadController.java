@@ -4,6 +4,9 @@ import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
 import com.loqiu.moneykeeper.DTO.MoneyKeeperDTO;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
+
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,6 +19,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+@Api(tags = "Excel导出管理")
 @RestController
 @RequestMapping("/api/excel")
 public class ExcelDownloadController {
@@ -24,6 +28,7 @@ public class ExcelDownloadController {
     @Autowired
     private MoneyKeeperService moneyKeeperService;
 
+    @ApiOperation("下载用户记账记录Excel")
     @GetMapping("/download/{userId}")
     public void downloadUserRecords(
             @PathVariable Long userId,
