@@ -2,11 +2,13 @@ package com.loqiu.moneykeeper.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.loqiu.moneykeeper.DTO.MoneyKeeperDTO;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.mapper.MoneyKeeperMapper;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -16,6 +18,9 @@ import java.util.List;
 public class MoneyKeeperServiceImpl extends ServiceImpl<MoneyKeeperMapper, MoneyKeeper> implements MoneyKeeperService {
 
     private static final Logger logger = LogManager.getLogger(MoneyKeeperServiceImpl.class);
+
+    @Autowired
+    private MoneyKeeperMapper moneyKeeperMapper;
 
     @Override
     public List<MoneyKeeper> findByUserIdAndDateRange(Long userId, LocalDate startDate, LocalDate endDate) {
@@ -37,7 +42,8 @@ public class MoneyKeeperServiceImpl extends ServiceImpl<MoneyKeeperMapper, Money
     }
 
     @Override
-    public List<MoneyKeeper> getAllRecordsWithCategoryName() {
-        return null;
+    public List<MoneyKeeperDTO> getAllRecordsWithCategoryName() {
+        List<MoneyKeeperDTO> result = moneyKeeperMapper.getAllRecordsWithCategoryName();
+        return result;
     }
 } 

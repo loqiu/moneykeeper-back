@@ -1,7 +1,9 @@
 package com.loqiu.moneykeeper.controller;
 
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.loqiu.moneykeeper.DTO.MoneyKeeperDTO;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -195,16 +197,16 @@ public class MoneyKeeperController {
     }
 
     @GetMapping("/listWithCategoryName")
-    public ResponseEntity<List<MoneyKeeper>> getAllRecordsWithCategoryName() {
-        logger.info("Getting getAllRecordsWithCategoryName");
-
+    public ResponseEntity<List<MoneyKeeperDTO>> getAllRecordsWithCategoryName() {
+        logger.info("Getting records with category names");
+        
         try {
-            List<MoneyKeeper> records = moneyKeeperService.list();
-            logger.info("Records found - Output - count: {}", records.size());
+            List<MoneyKeeperDTO> records = moneyKeeperService.getAllRecordsWithCategoryName();
+            logger.info("Records with category names found - Output - count: {}, record:{}", records.size(), JSON.toJSONString(records));
             logger.debug("Records details: {}", records);
             return ResponseEntity.ok(records);
         } catch (Exception e) {
-            logger.error("Failed to get records list - error: {}", e.getMessage());
+            logger.error("Failed to get records with category names - error: {}", e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }

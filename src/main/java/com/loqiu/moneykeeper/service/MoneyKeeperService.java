@@ -1,6 +1,7 @@
 package com.loqiu.moneykeeper.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.loqiu.moneykeeper.DTO.MoneyKeeperDTO;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 
 import java.time.LocalDate;
@@ -11,5 +12,5 @@ public interface MoneyKeeperService extends IService<MoneyKeeper> {
     List<MoneyKeeper> findByUserIdAndDateRange(Long userId, LocalDate startDate, LocalDate endDate);
     List<MoneyKeeper> findByUserIdAndType(Long userId, String type);
     //获取record 带 Category Name
-    List<MoneyKeeper> getAllRecordsWithCategoryName();
+    List<MoneyKeeperDTO> getAllRecordsWithCategoryName();
 } 

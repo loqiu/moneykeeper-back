@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.loqiu.moneykeeper.mapper.MoneyKeeperMapper">
+    
+    <!-- 定义结果映射 -->
+    <resultMap id="MoneyKeeperResultMap" type="com.loqiu.moneykeeper.DTO.MoneyKeeperDTO">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="category_id" property="categoryId"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="transaction_date" property="transactionDate"/>
+        <result column="category_name" property="categoryName"/>
+        <result column="type" property="type"/>
+        <result column="amount" property="amount"/>
+        <result column="notes" property="notes"/>
+    </resultMap>
+
+    <!-- 查询所有未删除的记录 -->
+    <select id="getAllRecordsWithCategoryName" resultMap="MoneyKeeperResultMap">
+        select
+            mk.id as id,
+            mk.user_id as user_id,
+            mk.category_id as category_id,
+            mk.transaction_date as transaction_date,
+            mk.updated_at as updated_at,
+            c.name as category_name,
+            mk.type as type,
+            mk.amount as amount,
+            mk.notes as notes
+        from
+            moneykeeper as mk
+        inner join
+            categories as c
+        on mk.category_id = c.id
+        where
+            mk.deleted_at = 0 and c.deleted_at = 0
+    </select>
+
+</mapper>
