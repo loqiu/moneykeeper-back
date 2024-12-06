@@ -74,6 +74,28 @@ jobs:
         with:
           name: java-app
 
+      - name: Shutdown Tomcat
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            systemctl stop tomcat
+
+      # 添加清理步骤（放在部署war包之前）
+      - name: Clean before deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            systemctl stop tomcat
+            rm -rf /usr/local/tomcat/apache-tomcat-10.1.33/webapps/moneykeeper-back*
+            rm -rf /usr/local/tomcat/apache-tomcat-10.1.33/work/*
+            rm -rf /usr/local/tomcat/apache-tomcat-10.1.33/temp/*
+
       - name: Deploy to CentOS
         uses: appleboy/scp-action@master
         with:
