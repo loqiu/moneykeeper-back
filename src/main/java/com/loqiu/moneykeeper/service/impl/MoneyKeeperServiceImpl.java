@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.mapper.MoneyKeeperMapper;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -12,7 +14,9 @@ import java.util.List;
 
 @Service
 public class MoneyKeeperServiceImpl extends ServiceImpl<MoneyKeeperMapper, MoneyKeeper> implements MoneyKeeperService {
-    
+
+    private static final Logger logger = LogManager.getLogger(MoneyKeeperServiceImpl.class);
+
     @Override
     public List<MoneyKeeper> findByUserIdAndDateRange(Long userId, LocalDate startDate, LocalDate endDate) {
         QueryWrapper<MoneyKeeper> queryWrapper = new QueryWrapper<>();
