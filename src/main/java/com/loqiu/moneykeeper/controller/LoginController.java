@@ -10,6 +10,7 @@ import com.loqiu.moneykeeper.entity.User;
 import com.loqiu.moneykeeper.service.UserService;
 import com.loqiu.moneykeeper.vo.LoginRequest;
 import com.loqiu.moneykeeper.vo.LoginResponse;
+import com.loqiu.moneykeeper.util.JwtUtil;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -19,6 +20,9 @@ public class LoginController {
 
     @Autowired
     private UserService userService;
+    
+    @Autowired
+    private JwtUtil jwtUtil;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
@@ -45,10 +49,14 @@ public class LoginController {
                 return ResponseEntity.badRequest().body("密码错误");
             }
 
-            // 登录成功，返回用户信息
+            // 生成JWT token
+            String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+
+            // 登录成功，返回用户信息和token
             LoginResponse response = new LoginResponse(
                 user.getId(),
-                user.getUsername()
+                user.getUsername(),
+                token
             );
             
             logger.info("Login successful - userId: {}, username: {}", user.getId(), user.getUsername());

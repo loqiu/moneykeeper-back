@@ -34,6 +34,8 @@
         on mk.category_id = c.id
         where
             mk.deleted_at = 0 and c.deleted_at = 0
+        order by
+            mk.transaction_date desc
     </select>
 
 </mapper>
