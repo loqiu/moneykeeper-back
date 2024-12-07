@@ -67,4 +67,19 @@ public class LoginController {
             return ResponseEntity.internalServerError().body("登录过程中发生错误");
         }
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestHeader("Authorization") String token) {
+        try {
+            if (token != null && token.startsWith("Bearer ")) {
+                token = token.substring(7);
+                Long userId = jwtUtil.getUserIdFromToken(token);
+                jwtUtil.invalidateToken(userId);
+                return ResponseEntity.ok("登出成功");
+            }
+            return ResponseEntity.badRequest().body("无效的token");
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("登出失败");
+        }
+    }
 } 

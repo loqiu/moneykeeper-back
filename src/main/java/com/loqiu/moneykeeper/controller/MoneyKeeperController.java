@@ -15,7 +15,6 @@ import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.time.LocalDate;
