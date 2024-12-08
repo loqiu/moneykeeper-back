@@ -1,5 +1,6 @@
 package com.loqiu.moneykeeper.service.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.loqiu.moneykeeper.service.SseEmitterService;
 import com.loqiu.moneykeeper.vo.NotificationMessage;
 
@@ -75,7 +76,7 @@ public class SseEmitterServiceImpl implements SseEmitterService {
             try {
                 emitter.send(SseEmitter.event()
                         .name("message")
-                        .data(message));
+                        .data(JSON.toJSONString(message)));
                 logger.info("消息已发送，用户ID: {}, 消息: {}", userId, message);
             } catch (IOException e) {
                 emitterMap.remove(userId);
