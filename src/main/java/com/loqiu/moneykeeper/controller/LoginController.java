@@ -75,10 +75,13 @@ public class LoginController {
                 token = token.substring(7);
                 Long userId = jwtUtil.getUserIdFromToken(token);
                 jwtUtil.invalidateToken(userId);
+                logger.info("用户登出成功 - 用户ID: {}", userId);
                 return ResponseEntity.ok("登出成功");
             }
+            logger.warn("登出失败 - 无效的token");
             return ResponseEntity.badRequest().body("无效的token");
         } catch (Exception e) {
+            logger.error("登出过程发生错误 - 错误: {}", e.getMessage());
             return ResponseEntity.internalServerError().body("登出失败");
         }
     }

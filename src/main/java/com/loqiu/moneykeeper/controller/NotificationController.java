@@ -40,7 +40,7 @@ public class NotificationController {
     public SseEmitter subscribe(
             @PathVariable Long userId,
             @RequestHeader("Authorization") String token) {
-        logger.info("开始处理SSE订阅请求 - 用户ID: {}", userId);
+        logger.info("开始处理SSE订阅请求 - 用户ID: {},token:{}", userId,token);
         // 去掉Bearer
         token = token.substring(7);
         if (userId != jwtUtil.getUserIdFromToken(token)) {
