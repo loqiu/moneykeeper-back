@@ -4,7 +4,9 @@ public enum MessageType {
     SUCCESS("success"),
     WARNING("warning"),
     INFO("info"),
-    ERROR("error");
+    ERROR("error"),
+    HEARTBEAT("heartbeat"),
+    CONNECT("connect");
 
     private final String type;
 

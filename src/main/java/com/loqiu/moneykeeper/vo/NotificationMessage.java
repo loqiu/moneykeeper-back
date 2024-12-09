@@ -1,9 +1,9 @@
 package com.loqiu.moneykeeper.vo;
 
 import com.loqiu.moneykeeper.enums.MessageType;
-import lombok.Data;
-import lombok.Builder;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
