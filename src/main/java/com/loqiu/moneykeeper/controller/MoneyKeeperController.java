@@ -4,18 +4,17 @@ import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.loqiu.moneykeeper.DTO.MoneyKeeperDTO;
+import com.loqiu.moneykeeper.entity.MoneyKeeper;
+import com.loqiu.moneykeeper.service.MoneyKeeperService;
+import com.loqiu.moneykeeper.vo.RecordSummary;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import com.loqiu.moneykeeper.entity.MoneyKeeper;
-import com.loqiu.moneykeeper.service.MoneyKeeperService;
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -208,12 +207,14 @@ public class MoneyKeeperController {
     }
 
     @Operation(summary = "获取所有记账记录带分类名称")
-    @GetMapping("/listWithCategoryName")
-    public ResponseEntity<List<MoneyKeeperDTO>> getAllRecordsWithCategoryName() {
+    @GetMapping("/listWithCategoryName/{userId}")
+    public ResponseEntity<List<MoneyKeeperDTO>> getAllRecordsWithCategoryName(@PathVariable Long userId,
+                                                                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                                                                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         logger.info("Getting records with category names");
         
         try {
-            List<MoneyKeeperDTO> records = moneyKeeperService.getAllRecordsWithCategoryName();
+            List<MoneyKeeperDTO> records = moneyKeeperService.getAllRecordsWithCategoryName(userId, startDate, endDate);
             logger.info("Records with category names found - Output - count: {}, record:{}", records.size(), JSON.toJSONString(records));
             logger.debug("Records details: {}", records);
             return ResponseEntity.ok(records);
@@ -269,6 +270,27 @@ public class MoneyKeeperController {
             return ResponseEntity.ok(records);
         } catch (Exception e) {
             logger.error("Failed to get records - userId: {}, error: {}", userId, e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/summary/{userId}")
+    public ResponseEntity<RecordSummary> getMoneyKeeperSummary(
+            @PathVariable("userId") Long userId,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
+        
+        logger.info("获取收支汇总信息 - 用户ID: {}, 开始日期: {}, 结束日期: {}", userId, startDate, endDate);
+        
+        try {
+            RecordSummary result = moneyKeeperService.getSummary(userId, startDate, endDate);
+            
+            logger.info("收支汇总信息获取成功 - 用户ID: {}, 总收入: {}, 总支出: {}, 结余: {}", 
+                userId, result.getTotalIncome(), result.getTotalExpense(), result.getBalance());
+                
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("获取收支汇总信息失败 - 用户ID: {}, 错误: {}", userId, e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }

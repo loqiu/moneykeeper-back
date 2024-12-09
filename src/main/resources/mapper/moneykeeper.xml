@@ -34,8 +34,41 @@
         on mk.category_id = c.id
         where
             mk.deleted_at = 0 and c.deleted_at = 0
+        <if test="startDate != null">
+            AND transaction_date >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND transaction_date &lt;= #{endDate}
+        </if>
         order by
             mk.transaction_date desc
+    </select>
+
+    <select id="getMoneyKeeperSummary" resultType="java.util.Map">
+        SELECT 
+            COALESCE(SUM(CASE WHEN type = 2 THEN amount ELSE 0 END), 0) as totalIncome,
+            COALESCE(SUM(CASE WHEN type = 1 THEN amount ELSE 0 END), 0) as totalExpense,
+            COALESCE(SUM(CASE WHEN type = 2 THEN amount ELSE -amount END), 0) as balance
+        FROM moneykeeper mk
+        WHERE user_id = #{userId} and mk.deleted_at = 0
+        <if test="startDate != null">
+            AND transaction_date >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND transaction_date &lt;= #{endDate}
+        </if>
+    </select>
+
+    <select id="getMoneyKeeperRecords" resultType="com.loqiu.moneykeeper.entity.MoneyKeeper">
+        SELECT * FROM moneykeeper
+        WHERE user_id = #{userId} and mk.deleted_at = 0
+        <if test="startDate != null">
+            AND transaction_date >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND transaction_date &lt;= #{endDate}
+        </if>
+        ORDER BY transaction_date DESC
     </select>
 
 </mapper>
