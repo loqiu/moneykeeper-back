@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- log4j2自己的日志配置级别 -->
+<Configuration status="warn" monitorInterval="30">
+    <Properties>
+        <!-- 基础路径配置 -->
+        <Property name="BASE_PATH">${env:LOG_PATH:-${sys:user.home}}</Property>
+        <!-- 应用名称 -->
+        <Property name="APP_NAME">moneykeeper</Property>
+        <!-- 环境标识 -->
+        <Property name="PROFILE">${sys:spring.profiles.active:-dev}</Property>
+        <!-- 最终日志路径 -->
+        <Property name="LOG_HOME">${BASE_PATH}/logs/${APP_NAME}/${PROFILE}</Property>
+        <!-- 项目日志格式 -->
+        <Property name="log.project.pattern">%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd HH:mm:ss.SSS}} %highlight{${LOG_LEVEL_PATTERN:-%5p}}{FATAL=red blink, ERROR=red, WARN=yellow bold, INFO=green, DEBUG=green bold, TRACE=blue} %style{${sys:PID}}{magenta} [%15.15t] %style{%-40.40C{1.}}{cyan} : %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}</Property>
+        <!-- 输出文件的日志格式 -->
+        <Property name="log.pattern">%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</Property>
+    </Properties>
+
+    <Appenders>
+        <!-- 控制台输出 -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${log.project.pattern}" disableAnsi="false" noConsoleNoAnsi="false"/>
+        </Console>
+
+        <!-- 滚动文件输出 -->
+        <RollingFile name="RollingFile" 
+                     fileName="${LOG_HOME}/moneykeeper.log"
+                     filePattern="${LOG_HOME}/moneykeeper-%d{yyyy-MM-dd}-%i.log.gz"
+                     immediateFlush="true"
+                     append="true">
+            <PatternLayout pattern="${log.pattern}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30">
+                <Delete basePath="${LOG_HOME}" maxDepth="1">
+                    <IfFileName glob="*.log.gz"/>
+                    <IfLastModified age="30d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <!-- Root Logger -->
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
+        </Root>
+
+        <!-- 应用日志 -->
+        <Logger name="com.loqiu.moneykeeper" level="debug" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
+        </Logger>
+
+        <!-- MyBatis SQL 日志 -->
+        <Logger name="com.baomidou.mybatisplus" level="debug" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
+        </Logger>
+    </Loggers>
+</Configuration> 
