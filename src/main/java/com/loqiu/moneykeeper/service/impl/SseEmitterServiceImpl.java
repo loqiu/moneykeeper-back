@@ -83,11 +83,11 @@ public class SseEmitterServiceImpl implements SseEmitterService {
     // 每30秒执行一次心跳
     @Scheduled(fixedRate = 30000)
     public void sendHeartbeatToAll() {
-        logger.info("开始发送心跳消息到所有连接，当前连接数: {}", emitterMap.size());
+//        logger.info("开始发送心跳消息到所有连接，当前连接数: {}", emitterMap.size());
         emitterMap.forEach((userId, emitter) -> {
             try {
                 sendHeartbeat(emitter);
-                logger.info("心跳消息发送成功 - 用户ID: {}", userId);
+//                logger.info("心跳消息发送成功 - 用户ID: {}", userId);
             } catch (IOException e) {
                 logger.error("发送心跳消息失败，用户ID: {}, 错误: {}", userId, e.getMessage());
                 emitterMap.remove(userId);
