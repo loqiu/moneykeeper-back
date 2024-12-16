@@ -3,7 +3,7 @@
 <mapper namespace="com.loqiu.moneykeeper.mapper.MoneyKeeperMapper">
     
     <!-- 定义结果映射 -->
-    <resultMap id="MoneyKeeperResultMap" type="com.loqiu.moneykeeper.DTO.MoneyKeeperDTO">
+    <resultMap id="MoneyKeeperResultMap" type="com.loqiu.moneykeeper.dto.MoneyKeeperDTO">
         <id column="id" property="id"/>
         <result column="user_id" property="userId"/>
         <result column="category_id" property="categoryId"/>

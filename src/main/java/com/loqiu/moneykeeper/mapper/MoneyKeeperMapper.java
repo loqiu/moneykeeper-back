@@ -1,7 +1,7 @@
 package com.loqiu.moneykeeper.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.loqiu.moneykeeper.DTO.MoneyKeeperDTO;
+import com.loqiu.moneykeeper.dto.MoneyKeeperDTO;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import org.apache.ibatis.annotations.Param;
 

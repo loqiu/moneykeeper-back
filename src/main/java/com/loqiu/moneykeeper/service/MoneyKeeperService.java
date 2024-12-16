@@ -1,7 +1,7 @@
 package com.loqiu.moneykeeper.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.loqiu.moneykeeper.DTO.MoneyKeeperDTO;
+import com.loqiu.moneykeeper.dto.MoneyKeeperDTO;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.vo.RecordSummary;
 

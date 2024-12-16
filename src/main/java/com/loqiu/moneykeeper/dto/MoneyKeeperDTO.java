@@ -1,4 +1,4 @@
-package com.loqiu.moneykeeper.DTO;
+package com.loqiu.moneykeeper.dto;
 
 import com.alibaba.excel.annotation.ExcelIgnore;
 import com.alibaba.excel.annotation.ExcelProperty;

@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.apache.dubbo.config.annotation.DubboService;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * SseEmitterServiceImpl
  */
 @Service
+@DubboService
 public class SseEmitterServiceImpl implements SseEmitterService {
     
     private static final Logger logger = LogManager.getLogger(SseEmitterServiceImpl.class);
