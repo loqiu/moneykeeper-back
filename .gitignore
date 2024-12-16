@@ -32,4 +32,4 @@ build/
 ### VS Code ###
 .vscode/
 # 忽略生产环境配置文件
-src/main/resources/application-prod.properties
+#src/main/resources/application-prod.properties
