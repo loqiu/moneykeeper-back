@@ -52,7 +52,7 @@ jobs:
           server-id: nexus-snapshot
           server-username: MAVEN_REPO_USERNAME
           server-password: MAVEN_REPO_PASSWORD
-          #settings-path: ${{ github.workspace }}
+          settings-path: ${{ github.workspace }}
           
       - name: Print workspace path
         run: echo "The workspace directory is ${{ github.workspace }}"
