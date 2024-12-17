@@ -65,41 +65,10 @@ jobs:
                         <password>Jin11167377.</password>
                     </server>
                 </servers>
-
-                <repositories>
-                  <repository>
-                        <id>nexus-releases</id>
-                        <name>nexus-rotec-private</name>
-                        <url>http://8.208.90.124:8283/repository/maven-releases/</url>
-                        <releases>
-                            <enabled>true</enabled>
-                            <updatePolicy>daily</updatePolicy>
-                        </releases>
-                        <snapshots>
-                            <enabled>true</enabled>
-                            <checksumPolicy>warn</checksumPolicy>
-                        </snapshots>
-                        <layout>default</layout>
-                  </repository>
-                  <repository>
-                        <id>nexus-snapshots</id>
-                        <name>nexus-rotec-private</name>
-                        <url>http://8.208.90.124:8283/repository/maven-snapshots/</url>
-                        <releases>
-                            <enabled>true</enabled>
-                            <updatePolicy>daily</updatePolicy>
-                        </releases>
-                        <snapshots>
-                            <enabled>true</enabled>
-                            <checksumPolicy>warn</checksumPolicy>
-                        </snapshots>
-                        <layout>default</layout>
-                  </repository>
-                 </repositories>
             </settings>
 
       - name: Build with Maven
-        run: mvn clean package
+        run: mvn clean package -X
         
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
