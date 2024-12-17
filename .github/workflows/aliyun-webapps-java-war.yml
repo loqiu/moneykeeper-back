@@ -49,9 +49,9 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.DISTRIBUTION }}
           cache: 'maven'
-          server-id: nexus-snapshots
-          server-username: ${{ secrets.MAVEN_REPO_USERNAME }}
-          server-password: ${{ secrets.MAVEN_REPO_PASSWORD }}
+          #server-id: nexus-snapshots
+          #server-username: ${{ secrets.MAVEN_REPO_USERNAME }}
+          #server-password: ${{ secrets.MAVEN_REPO_PASSWORD }}
           #settings-path: ${{ github.workspace }}/settings.xml
           overwrite-settings: false
           
