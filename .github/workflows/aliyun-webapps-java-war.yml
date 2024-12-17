@@ -57,12 +57,12 @@ jobs:
                     <server>
                         <id>remote-repo-releases</id>
                         <username>${{ secrets.MAVEN_REPO_USERNAME }}</username>
-                        <password>${{ secrets.MAVEN_REPO_PASSWORD }}</password>
+                        <password>${{ secrets.NEXUS_API_KEY }}</password>
                     </server>
                     <server>
                         <id>remote-repo-snapshots</id>
                         <username>${{ secrets.MAVEN_REPO_USERNAME }}</username>
-                        <password>${{ secrets.MAVEN_REPO_PASSWORD }}</password>
+                        <password>${{ secrets.NEXUS_API_KEY }}</password>
                     </server>
                 </servers>
                 <profiles>
@@ -71,7 +71,7 @@ jobs:
                         <repositories>
                             <repository>
                                 <id>remote-repo-releases</id>
-                                <url>http://8.208.90.124:8283/repository/maven-releases/</url>
+                                <url>${{ secrets.NEXUS_URL_RELEASE }}</url>
                                 <releases>
                                     <enabled>true</enabled>
                                 </releases>
@@ -81,7 +81,7 @@ jobs:
                             </repository>
                             <repository>
                                 <id>remote-repo-snapshots</id>
-                                <url>http://8.208.90.124:8283/repository/maven-snapshots/</url>
+                                <url>${{ secrets.NEXUS_URL_SNAPSHOT }}</url>
                                 <releases>
                                     <enabled>false</enabled>
                                 </releases>
@@ -121,15 +121,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: java-app
-
-      - name: Shutdown Tomcat
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ${{ secrets.REMOTE_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            systemctl stop tomcat
 
       # 添加清理步骤（放在部署war包之前）
       - name: Clean before deploy
