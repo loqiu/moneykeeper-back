@@ -83,11 +83,14 @@ jobs:
                   <!-- 覆盖默认的 HTTP 拦截器 -->
                   <mirror>
                       <id>allow-http</id>
-                      <mirrorOf>external:http:*</mirrorOf>
+                      <mirrorOf>maven-default-http-blocker</mirrorOf>
                       <url>http://8.208.90.124:8283/repository/maven-releases/</url>
                   </mirror>
             </settings>
-
+            
+      - name: check mvn setting
+        run: mvn help:effective-settings
+      
       - name: Build with Maven
         run: mvn clean package -X
         
