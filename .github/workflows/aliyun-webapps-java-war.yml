@@ -50,21 +50,22 @@ jobs:
           distribution: ${{ env.DISTRIBUTION }}
           cache: 'maven'
           settings: |
-            <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+            <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
                       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                      xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+                      xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
                 <servers>
                     <server>
                         <id>nexus-releases</id>
-                        <username>${{ secrets.MAVEN_REPO_USERNAME }}</username>
-                        <password>${{ secrets.MAVEN_REPO_PASSWORD }}</password>
+                        <username>admin</username>
+                        <password>Jin11167377.</password>
                     </server>
                     <server>
                         <id>nexus-snapshots</id>
-                        <username>${{ secrets.MAVEN_REPO_USERNAME }}</username>
-                        <password>${{ secrets.MAVEN_REPO_PASSWORD }}</password>
+                        <username>admin</username>
+                        <password>Jin11167377.</password>
                     </server>
                 </servers>
+
                 <repositories>
                   <repository>
                         <id>nexus-releases</id>
@@ -98,7 +99,7 @@ jobs:
             </settings>
 
       - name: Build with Maven
-        run: mvn clean package -X
+        run: mvn clean package
         
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
