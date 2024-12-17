@@ -52,7 +52,8 @@ jobs:
           server-id: nexus-snapshots
           server-username: ${{ secrets.MAVEN_REPO_USERNAME }}
           server-password: ${{ secrets.MAVEN_REPO_PASSWORD }}
-          settings-path: ${{ github.workspace }}/src/main/resources/settings.xml
+          settings-path: ${{ github.workspace }}
+          overwrite-settings: false
           
       - name: Print workspace path
         run: |
@@ -60,13 +61,13 @@ jobs:
             ls -la $GITHUB_WORKSPACE
             
       - name: check setting 
-        run: cat ${{ github.workspace }}/src/main/resources/settings.xml
+        run: cat ${{ github.workspace }}/settings.xml
         
       - name: check mvn setting
-        run: mvn help:effective-settings --settings ${{ github.workspace }}/src/main/resources/settings.xml -X
+        run: mvn help:effective-settings --settings ${{ github.workspace }}/settings.xml -X
       
       - name: Build with Maven
-        run: mvn clean package -s ${{ github.workspace }}/src/main/resources/settings.xml
+        run: mvn clean package -s ${{ github.workspace }}/settings.xml
         
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
