@@ -55,46 +55,46 @@ jobs:
                       xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
                 <servers>
                     <server>
-                        <id>remote-repo-releases</id>
+                        <id>nexus-releases</id>
                         <username>${{ secrets.MAVEN_REPO_USERNAME }}</username>
-                        <password>${{ secrets.NEXUS_API_KEY }}</password>
+                        <password>${{ secrets.MAVEN_REPO_PASSWORD }}</password>
                     </server>
                     <server>
-                        <id>remote-repo-snapshots</id>
+                        <id>nexus-snapshots</id>
                         <username>${{ secrets.MAVEN_REPO_USERNAME }}</username>
-                        <password>${{ secrets.NEXUS_API_KEY }}</password>
+                        <password>${{ secrets.MAVEN_REPO_PASSWORD }}</password>
                     </server>
                 </servers>
-                <profiles>
-                    <profile>
-                        <id>remote-repo-profile</id>
-                        <repositories>
-                            <repository>
-                                <id>remote-repo-releases</id>
-                                <url>${{ secrets.NEXUS_URL_RELEASE }}</url>
-                                <releases>
-                                    <enabled>true</enabled>
-                                </releases>
-                                <snapshots>
-                                    <enabled>false</enabled>
-                                </snapshots>
-                            </repository>
-                            <repository>
-                                <id>remote-repo-snapshots</id>
-                                <url>${{ secrets.NEXUS_URL_SNAPSHOT }}</url>
-                                <releases>
-                                    <enabled>false</enabled>
-                                </releases>
-                                <snapshots>
-                                    <enabled>true</enabled>
-                                </snapshots>
-                            </repository>
-                        </repositories>
-                    </profile>
-                </profiles>
-                <activeProfiles>
-                    <activeProfile>remote-repo-profile</activeProfile>
-                </activeProfiles>
+                <repositories>
+                  <repository>
+                        <id>nexus-releases</id>
+                        <name>nexus-rotec-private</name>
+                        <url>http://8.208.90.124:8283/repository/maven-releases/</url>
+                        <releases>
+                            <enabled>true</enabled>
+                            <updatePolicy>daily</updatePolicy>
+                        </releases>
+                        <snapshots>
+                            <enabled>true</enabled>
+                            <checksumPolicy>warn</checksumPolicy>
+                        </snapshots>
+                        <layout>default</layout>
+                  </repository>
+                  <repository>
+                        <id>nexus-snapshots</id>
+                        <name>nexus-rotec-private</name>
+                        <url>http://8.208.90.124:8283/repository/maven-snapshots/</url>
+                        <releases>
+                            <enabled>true</enabled>
+                            <updatePolicy>daily</updatePolicy>
+                        </releases>
+                        <snapshots>
+                            <enabled>true</enabled>
+                            <checksumPolicy>warn</checksumPolicy>
+                        </snapshots>
+                        <layout>default</layout>
+                  </repository>
+                 </repositories>
             </settings>
 
       - name: Build with Maven
