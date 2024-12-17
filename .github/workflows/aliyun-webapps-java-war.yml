@@ -81,10 +81,10 @@ jobs:
             </settings>
 
       - name: Build with Maven
-        run: mvn clean package -Pproduction    # 使用production profile打包
+        run: mvn clean package
         
       - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: java-app
           path: '${{ github.workspace }}/target/*.war'  # 修改为war包路径
