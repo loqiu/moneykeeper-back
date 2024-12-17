@@ -55,7 +55,12 @@ jobs:
                       xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
                 <servers>
                     <server>
-                        <id>remote-repo</id>
+                        <id>remote-repo-releases</id>
+                        <username>${{ secrets.MAVEN_REPO_USERNAME }}</username>
+                        <password>${{ secrets.MAVEN_REPO_PASSWORD }}</password>
+                    </server>
+                    <server>
+                        <id>remote-repo-snapshots</id>
                         <username>${{ secrets.MAVEN_REPO_USERNAME }}</username>
                         <password>${{ secrets.MAVEN_REPO_PASSWORD }}</password>
                     </server>
@@ -65,12 +70,24 @@ jobs:
                         <id>remote-repo-profile</id>
                         <repositories>
                             <repository>
-                                <id>remote-repo</id>
+                                <id>remote-repo-releases</id>
                                 <url>http://8.208.90.124:8283/repository/maven-releases/</url>
+                                <releases>
+                                    <enabled>true</enabled>
+                                </releases>
+                                <snapshots>
+                                    <enabled>false</enabled>
+                                </snapshots>
                             </repository>
                             <repository>
-                                <id>remote-repo</id>
+                                <id>remote-repo-snapshots</id>
                                 <url>http://8.208.90.124:8283/repository/maven-snapshots/</url>
+                                <releases>
+                                    <enabled>false</enabled>
+                                </releases>
+                                <snapshots>
+                                    <enabled>true</enabled>
+                                </snapshots>
                             </repository>
                         </repositories>
                     </profile>
