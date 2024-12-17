@@ -49,18 +49,21 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.DISTRIBUTION }}
           cache: 'maven'
-          server-id: nexus-snapshot
-          server-username: MAVEN_REPO_USERNAME
-          server-password: MAVEN_REPO_PASSWORD
-          #settings-path: ${{ github.workspace }}
+          server-id: nexus-snapshots
+          server-username: ${{ secrets.MAVEN_REPO_USERNAME }}
+          server-password: ${{ secrets.MAVEN_REPO_PASSWORD }}
+          settings-path: ${{ github.workspace }}
           
       - name: Print workspace path
-        run: echo "The workspace directory is ${{ github.workspace }}"
+        run: |
+            echo "Workspace Directory: $GITHUB_WORKSPACE"
+            ls -la $GITHUB_WORKSPACE
+            
       - name: check mvn setting
         run: mvn help:effective-settings --settings ${{ github.workspace }}/settings.xml
       
       - name: Build with Maven
-        run: mvn clean package -X
+        run: mvn clean package -s ${{ github.workspace }}/settings.xml -X
         
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
