@@ -65,6 +65,27 @@ jobs:
                         <password>Jin11167377.</password>
                     </server>
                 </servers>
+                <mirrors>
+                  <!-- Releases 仓库重定向 -->
+                  <mirror>
+                      <id>nexus-releases-mirror</id>
+                      <mirrorOf>nexus-releases</mirrorOf>
+                      <url>http://8.208.90.124:8283/repository/maven-releases/</url>
+                  </mirror>
+              
+                  <!-- Snapshots 仓库重定向 -->
+                  <mirror>
+                      <id>nexus-snapshots-mirror</id>
+                      <mirrorOf>nexus-snapshots</mirrorOf>
+                      <url>http://8.208.90.124:8283/repository/maven-snapshots/</url>
+                  </mirror>
+              
+                  <!-- 覆盖默认的 HTTP 拦截器 -->
+                  <mirror>
+                      <id>allow-http</id>
+                      <mirrorOf>external:http:*</mirrorOf>
+                      <url>http://8.208.90.124:8283/repository/maven-releases/</url>
+                  </mirror>
             </settings>
 
       - name: Build with Maven
