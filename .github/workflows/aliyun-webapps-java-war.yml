@@ -55,10 +55,10 @@ jobs:
           #settings-path: ${{ github.workspace }}/settings.xml
           overwrite-settings: false
           
-      #- name: Print workspace path
-      #  run: |
-      #      echo "Workspace Directory: $GITHUB_WORKSPACE"
-      #      ls -la $GITHUB_WORKSPACE
+#      - name: Print workspace path
+#        run: |
+#            echo "Workspace Directory: $GITHUB_WORKSPACE"
+#            ls -la $GITHUB_WORKSPACE
             
       #- name: check setting
       #  run: cat ${{ github.workspace }}/settings.xml
@@ -67,7 +67,7 @@ jobs:
       #- name: check mvn setting
       #  run: mvn help:effective-settings --settings ${{ github.workspace }}/settings.xml
       - name: Build with Maven
-        run: mvn clean package -s ${{ github.workspace }}/settings.xml -Pproduction
+        run: mvn clean package -s ${{ github.workspace }}/settings.xml -Pprod
         
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -75,6 +75,10 @@ jobs:
           name: java-app
           path: '${{ github.workspace }}/target/*.war'  # 修改为war包路径
 
+      - name: Print workspace path
+        run: |
+          echo "Workspace Directory: $GITHUB_WORKSPACE"
+          ls -laR $GITHUB_WORKSPACE
 
   deploy:
     permissions:
@@ -87,9 +91,11 @@ jobs:
 
     steps:
       - name: Download artifact from build job
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.8
         with:
           name: java-app
+      - name: Display structure of downloaded files
+        run: ls -R
 
       # 添加清理步骤（放在部署war包之前）
       - name: Clean before deploy
