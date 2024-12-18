@@ -16,14 +16,14 @@
     <mirrors>
     <!-- Releases 仓库重定向 -->
         <mirror>
-            <id>nexus-releases-mirror</id>
+            <id>nnexus-releases</id>
             <mirrorOf>nexus-releases</mirrorOf>
             <url>http://8.208.90.124:8283/repository/maven-releases/</url>
         </mirror>
 
         <!-- Snapshots 仓库重定向 -->
         <mirror>
-            <id>nexus-snapshots-mirror</id>
+            <id>nexus-snapshots</id>
             <mirrorOf>nexus-snapshots</mirrorOf>
             <url>http://8.208.90.124:8283/repository/maven-snapshots/</url>
         </mirror>
