@@ -62,14 +62,12 @@ jobs:
             
       - name: check setting 
         run: cat ${{ github.workspace }}/settings.xml
-        
-      - name: Clean Maven cache for specific artifact
-        run: rm -rf ~/.m2/repository/org/rochetec/payment-api
+      #- name: Clean Maven cache for specific artifact
+      #  run: rm -rf ~/.m2/repository/org/rochetec/payment-api
       #- name: check mvn setting
       #  run: mvn help:effective-settings --settings ${{ github.workspace }}/settings.xml
-      
       - name: Build with Maven
-        run: mvn clean package -s ${{ github.workspace }}/settings.xml -U
+        run: mvn clean package -s ${{ github.workspace }}/settings.xml -Pprod
         
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
