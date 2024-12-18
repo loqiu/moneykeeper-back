@@ -67,7 +67,7 @@ jobs:
       #- name: check mvn setting
       #  run: mvn help:effective-settings --settings ${{ github.workspace }}/settings.xml
       - name: Build with Maven
-        run: mvn clean package -s ${{ github.workspace }}/settings.xml -Pprod
+        run: mvn clean package -s ${{ github.workspace }}/settings.xml -Pproduction
         
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4

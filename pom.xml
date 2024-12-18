@@ -164,12 +164,6 @@
             <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
             <version>2023.0.3.2</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/com.alibaba.cloud/spring-cloud-starter-dubbo -->
-        <dependency>
-            <groupId>com.alibaba.cloud</groupId>
-            <artifactId>spring-cloud-starter-dubbo</artifactId>
-            <version>2021.1</version>
-        </dependency>
 
         <!-- https://mvnrepository.com/artifact/com.mysql/mysql-connector-j -->
         <dependency>
