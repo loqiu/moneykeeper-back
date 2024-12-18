@@ -32,7 +32,7 @@
         <mirror>
             <id>allow-http</id>
             <mirrorOf>maven-default-http-blocker</mirrorOf>
-            <url>http://8.208.90.124:8283/repository/maven-releases/</url>
+            <url>http://8.208.90.124:8283/repository/maven-snapshots/</url>
         </mirror>
     </mirrors>
 </settings>
