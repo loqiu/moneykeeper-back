@@ -55,13 +55,13 @@ jobs:
           #settings-path: ${{ github.workspace }}/settings.xml
           overwrite-settings: false
           
-      - name: Print workspace path
-        run: |
-            echo "Workspace Directory: $GITHUB_WORKSPACE"
-            ls -la $GITHUB_WORKSPACE
+      #- name: Print workspace path
+      #  run: |
+      #      echo "Workspace Directory: $GITHUB_WORKSPACE"
+      #      ls -la $GITHUB_WORKSPACE
             
-      - name: check setting 
-        run: cat ${{ github.workspace }}/settings.xml
+      #- name: check setting
+      #  run: cat ${{ github.workspace }}/settings.xml
       #- name: Clean Maven cache for specific artifact
       #  run: rm -rf ~/.m2/repository/org/rochetec/payment-api
       #- name: check mvn setting
