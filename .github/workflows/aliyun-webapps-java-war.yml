@@ -75,19 +75,19 @@ jobs:
           name: java-app
           path: '${{ github.workspace }}/target/*.war'  # 修改为war包路径
 
-      - name: Print workspace path
-        run: |
-          echo "Workspace Directory: $GITHUB_WORKSPACE"
-          ls -laR $GITHUB_WORKSPACE
+#      - name: Print workspace path
+#        run: |
+#          echo "Workspace Directory: $GITHUB_WORKSPACE"
+#          ls -laR $GITHUB_WORKSPACE
 
   deploy:
     permissions:
       contents: none
     runs-on: ubuntu-latest
     needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    #environment:
+    #  name: 'Production'
+    #  url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
 
     steps:
       - name: Download artifact from build job
