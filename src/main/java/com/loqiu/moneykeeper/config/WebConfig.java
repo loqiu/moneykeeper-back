@@ -1,6 +1,7 @@
 package com.loqiu.moneykeeper.config;
 
 import com.loqiu.moneykeeper.interceptor.JwtAuthenticationInterceptor;
+import com.loqiu.moneykeeper.interceptor.TraceIdInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
@@ -14,6 +15,9 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Autowired
     private JwtAuthenticationInterceptor jwtAuthenticationInterceptor;
+
+    @Autowired
+    private TraceIdInterceptor traceIdInterceptor;
 
     @Override
     public void addCorsMappings(@NonNull CorsRegistry registry) {
@@ -40,5 +44,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/**")
                 .excludePathPatterns("/api/auth/login")
                 .excludePathPatterns("/**", "OPTIONS");
+        registry.addInterceptor(traceIdInterceptor)
+                .addPathPatterns("/api/**");
     }
 }
