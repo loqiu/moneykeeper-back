@@ -19,6 +19,18 @@ public class User {
     
     @NonNull
     private String password;
+
+    @TableField("email")
+    private String email;
+
+    @TableField("first_name")
+    private String firstName;
+
+    @TableField("last_name")
+    private String lastName;
+
+    @TableField("phone_number")
+    private String phoneNumber;
     
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
@@ -31,4 +43,7 @@ public class User {
     private Integer deletedAt;
 
     private LocalDateTime deletedTime;
+
+    @TableField("registration_completed_at")
+    private LocalDateTime registrationCompletedAt;
 } 

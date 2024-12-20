@@ -22,4 +22,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.eq("username", username);
         return getOne(queryWrapper);
     }
-} 
+
+    @Override
+    public User findByEmail(String email) {
+        if (email == null) {
+            throw new IllegalArgumentException("email must not be null");
+        }
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("email", email);
+        return getOne(queryWrapper);
+    }
+
+}

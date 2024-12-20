@@ -34,6 +34,9 @@
         on mk.category_id = c.id
         where
             mk.deleted_at = 0 and c.deleted_at = 0
+        <if test="userId != null">
+            AND mk.user_id >= #{userId}
+        </if>
         <if test="startDate != null">
             AND transaction_date >= #{startDate}
         </if>
@@ -41,7 +44,7 @@
             AND transaction_date &lt;= #{endDate}
         </if>
         order by
-            mk.transaction_date desc
+            mk.updated_at desc
     </select>
 
     <select id="getMoneyKeeperSummary" resultType="java.util.Map">
