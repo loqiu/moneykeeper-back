@@ -31,6 +31,22 @@
         <java.version>17</java.version>
     </properties>
     <dependencies>
+        <!-- https://mvnrepository.com/artifact/org.springframework.kafka/spring-kafka -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+            <version>3.3.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>3.9.0</version> <!-- 使用与 Kafka 服务端兼容的版本 -->
+        </dependency>
+        <dependency>
+            <groupId>org.rotec</groupId>
+            <artifactId>aiservices-rotec-api</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
         <!-- 导入payment项目包 -->
         <dependency>
             <groupId>org.rochetec</groupId>

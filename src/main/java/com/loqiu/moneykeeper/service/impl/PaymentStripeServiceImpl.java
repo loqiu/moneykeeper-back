@@ -1,10 +1,13 @@
 package com.loqiu.moneykeeper.service.impl;
 
 import com.alibaba.fastjson.JSON;
+import com.loqiu.moneykeeper.constant.KafkaTopicConstant;
 import com.loqiu.moneykeeper.dto.MkCheckoutSession;
 import com.loqiu.moneykeeper.dto.MkPaymentIntentDTO;
 import com.loqiu.moneykeeper.response.MkApiResponse;
 import com.loqiu.moneykeeper.response.ResponseConverter;
+import com.loqiu.moneykeeper.service.KafkaConsumerService;
+import com.loqiu.moneykeeper.service.KafkaProducerService;
 import com.loqiu.moneykeeper.service.PaymentStripeService;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.apache.logging.log4j.LogManager;
@@ -14,6 +17,7 @@ import org.rochetec.model.dto.PaymentIntentDTO;
 import org.rochetec.model.response.PayApiResponse;
 import org.rochetec.service.StripePaymentService;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -27,11 +31,18 @@ public class PaymentStripeServiceImpl implements PaymentStripeService {
     @DubboReference
     private StripePaymentService paymentService;
 
+    @Autowired
+    private KafkaProducerService kafkaProducerService;
+
+    @Autowired
+    private KafkaConsumerService kafkaConsumerService;
+
     @Override
     public MkApiResponse<MkPaymentIntentDTO> createPaymentIntent(Long amount, String currency) {
         logger.info("创建支付意向 - 金额: {}, 货币: {}", amount, currency);
         
         try {
+            kafkaProducerService.sendMessage(KafkaTopicConstant.QUICKSTART_EVENTS, "createPaymentIntent", "amount: " + amount + ", currency: " + currency);
             PayApiResponse<PaymentIntentDTO> response = paymentService.createPaymentIntent(amount, currency);
             
             logger.info("支付意向创建成功 - paymentIntentId: {}", response.getData().getId());

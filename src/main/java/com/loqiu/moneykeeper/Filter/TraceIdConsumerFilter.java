@@ -12,7 +12,7 @@ public class TraceIdConsumerFilter implements Filter {
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         String traceId = TraceContext.getTraceId();
         if (traceId != null && !traceId.isEmpty()) {
-            RpcContext.getContext().setAttachment(TraceConstant.TRACE_ID_HEADER, traceId);
+            RpcContext.getClientAttachment().setAttachment(TraceConstant.TRACE_ID_HEADER, traceId);
         }
         return invoker.invoke(invocation);
     }

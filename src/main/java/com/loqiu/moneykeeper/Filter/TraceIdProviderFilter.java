@@ -11,7 +11,7 @@ import org.apache.dubbo.rpc.*;
 public class TraceIdProviderFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
-        String traceId = RpcContext.getContext().getAttachment(TraceConstant.TRACE_ID_HEADER);
+        String traceId = RpcContext.getServerAttachment().getAttachment(TraceConstant.TRACE_ID_HEADER);
         if (traceId != null && !traceId.isEmpty()) {
             TraceContext.setTraceId(traceId);
         } else {
