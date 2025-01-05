@@ -13,7 +13,10 @@ import java.time.LocalDateTime;
 public class User {
     @TableId(type = IdType.AUTO)
     private Long id;
-    
+
+    @TableField("user_pin")
+    private String userPin;
+
     @NonNull
     private String username;
     

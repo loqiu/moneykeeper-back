@@ -1,11 +1,12 @@
 package com.loqiu.moneykeeper.controller;
 
-import com.loqiu.moneykeeper.service.SseEmitterService;
-import com.loqiu.moneykeeper.service.NotificationService;
-import com.loqiu.moneykeeper.util.JwtUtil;
+import com.loqiu.moneykeeper.entity.User;
 import com.loqiu.moneykeeper.exception.UnauthorizedException;
+import com.loqiu.moneykeeper.service.NotificationService;
+import com.loqiu.moneykeeper.service.SseEmitterService;
+import com.loqiu.moneykeeper.service.UserService;
+import com.loqiu.moneykeeper.util.JwtUtil;
 import com.loqiu.moneykeeper.vo.NotificationMessage;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,9 @@ public class NotificationController {
     private NotificationService notificationService;
 
     @Autowired
+    private UserService userService;
+
+    @Autowired
     private JwtUtil jwtUtil;
 
     @GetMapping(value = "/subscribe/{userId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -43,7 +47,10 @@ public class NotificationController {
         logger.info("开始处理SSE订阅请求 - 用户ID: {},token:{}", userId,token);
         // 去掉Bearer
         token = token.substring(7);
-        if (userId != jwtUtil.getUserIdFromToken(token)) {
+        String userPin = jwtUtil.getUserIdFromToken(token);
+        logger.info("sse订阅请求 - userPin: {}", userPin);
+        User user = userService.findByUserPin(userPin);
+        if (userId != user.getId()) {
             logger.warn("SSE订阅失败 - 用户ID不匹配 - 请求用户ID: {}, token中用户ID: {}", 
                 userId, jwtUtil.getUserIdFromToken(token));
             throw new UnauthorizedException();

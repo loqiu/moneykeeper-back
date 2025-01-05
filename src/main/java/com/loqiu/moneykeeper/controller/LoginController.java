@@ -3,20 +3,22 @@ package com.loqiu.moneykeeper.controller;
 import com.alibaba.fastjson2.JSON;
 import com.loqiu.moneykeeper.entity.User;
 import com.loqiu.moneykeeper.response.MkApiResponse;
+import com.loqiu.moneykeeper.service.LoginService;
+import com.loqiu.moneykeeper.service.PasswordService;
 import com.loqiu.moneykeeper.service.UserService;
 import com.loqiu.moneykeeper.util.JwtUtil;
+import com.loqiu.moneykeeper.util.UserPinUtil;
 import com.loqiu.moneykeeper.vo.LoginRequest;
 import com.loqiu.moneykeeper.vo.LoginResponse;
 import com.loqiu.moneykeeper.vo.RegisterRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-import com.loqiu.moneykeeper.service.PasswordService;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 @RestController
@@ -30,6 +32,9 @@ public class LoginController {
 
     @Autowired
     private PasswordService passwordService;
+
+    @Autowired
+    private LoginService loginService;
     
     @Autowired
     private JwtUtil jwtUtil;
@@ -40,46 +45,43 @@ public class LoginController {
     private static final String   PHONE_REGEX = "^\\d{10,11}$";
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+    public MkApiResponse<LoginResponse> login(@RequestBody LoginRequest loginRequest) {
         logger.info("Processing login request - username: {},password:{}", loginRequest.getUsername(),loginRequest.getPassword());
-        
         // 参数校验
         if (loginRequest == null || loginRequest.getUsername() == null || loginRequest.getPassword() == null) {
             logger.error("Invalid login request - missing username or password");
-            return ResponseEntity.badRequest().body("用户名和密码不能为空");
+            return MkApiResponse.error("用户名或密码不能为空");
         }
-
+        String username = loginRequest.getUsername();
+        String password = loginRequest.getPassword();
         try {
-            // 查找用户
-            User user = userService.findByUsername(loginRequest.getUsername());
-            
+            // username is unique in database
+            User user = userService.findByUsername(username);
             if (user == null) {
-                logger.warn("Login failed - user not found - username: {}", loginRequest.getUsername());
-                return ResponseEntity.badRequest().body("用户不存在");
+                logger.warn("Login failed - user not found - username: {}", username);
+                return MkApiResponse.error("用户不存在");
             }
 
-            // 验证密码
-            if (!passwordService.matches(loginRequest.getPassword(), user.getPassword())) {
-                logger.warn("Login failed - incorrect password - username: {}", loginRequest.getUsername());
-                return ResponseEntity.badRequest().body("密码错误");
+            if (!passwordService.matches(password, user.getPassword())) {
+                logger.warn("Login failed - incorrect password - password: {},userPassowrd:{}", password, user.getPassword());
+                return MkApiResponse.error("密码错误");
             }
-
             // 生成JWT token
-            String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+            String token = jwtUtil.generateToken(user.getUserPin(), user.getUsername());
 
             // 登录成功，返回用户信息和token
             LoginResponse response = new LoginResponse(
-                user.getId(),
-                user.getUsername(),
-                token
+                    user.getId(),
+                    user.getUserPin(),
+                    user.getUsername(),
+                    token
             );
-            
-            logger.info("Login successful - userId: {}, username: {}", user.getId(), user.getUsername());
-            return ResponseEntity.ok(response);
+            logger.info("Login successful - username: {}", loginRequest.getUsername());
+            return MkApiResponse.success(response);
 
         } catch (Exception e) {
             logger.error("Login error - username: {}, error: {}", loginRequest.getUsername(), e.getMessage());
-            return ResponseEntity.internalServerError().body("登录过程中发生错误");
+            return MkApiResponse.error("登录失败：" + e.getMessage());
         }
     }
 
@@ -88,9 +90,9 @@ public class LoginController {
         try {
             if (token != null && token.startsWith("Bearer ")) {
                 token = token.substring(7);
-                Long userId = jwtUtil.getUserIdFromToken(token);
-                jwtUtil.invalidateToken(userId);
-                logger.info("用户登出成功 - 用户ID: {}", userId);
+                String userPin = jwtUtil.getUserIdFromToken(token);
+                jwtUtil.invalidateToken(userPin);
+                logger.info("用户登出成功 - userPin: {}", userPin);
                 logger.info("result:{}", JSON.toJSONString(MkApiResponse.success("登出成功", Boolean.TRUE)));
                 return MkApiResponse.success("登出成功", Boolean.TRUE);
             }
@@ -128,6 +130,7 @@ public class LoginController {
 
             // 创建新用户
             User newUser = new User();
+            newUser.setUserPin(UserPinUtil.generateUserPin());
             newUser.setUsername(registerRequest.getUsername());
             newUser.setPassword(passwordService.encodePassword(registerRequest.getPassword()));
             newUser.setEmail(registerRequest.getEmail());
@@ -144,6 +147,24 @@ public class LoginController {
         } catch (Exception e) {
             logger.error("注册过程发生错误 - username: {}, error: {}", registerRequest.getUsername(), e.getMessage());
             return MkApiResponse.error("注册失败：" + e.getMessage());
+        }
+    }
+
+    @PostMapping("/google")
+    public MkApiResponse<LoginResponse> googleAuth(@RequestBody Map<String, String> request) {
+        logger.info("开始处理Google登录请求 - idToken: {}", request.get("idToken"));
+        // 验证Google ID token
+        String idToken = request.get("idToken");
+        if(null == idToken || idToken.isEmpty()){
+            logger.info("Google登录失败 - idToken为空");
+            return MkApiResponse.error("Google登录失败");
+        }
+        try {
+            LoginResponse response = loginService.verifyGoogleIdToken(idToken);
+            return MkApiResponse.success(response);
+        } catch (Exception e) {
+            logger.error("Google登录过程发生错误 - 错误: {}", e.getMessage());
+            return MkApiResponse.error("Google登录失败");
         }
     }
 

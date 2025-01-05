@@ -33,4 +33,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return getOne(queryWrapper);
     }
 
+    @Override
+    public User findByUserPin(String userPin) {
+        if (userPin == null) {
+            throw new IllegalArgumentException("userPin must not be null");
+        }
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("user_pin", userPin);
+        return getOne(queryWrapper);
+    }
+
 }

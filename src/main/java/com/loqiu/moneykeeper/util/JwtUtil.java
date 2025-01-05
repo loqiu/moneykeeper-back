@@ -13,7 +13,7 @@ import java.util.Date;
 @Component
 public class JwtUtil {
     @Autowired
-    private RedisUtil redisUtil;
+    private RedisTokenUtil redisTokenUtil;
 
     @Value("${JWT.SECERT}")
     private String secret;
@@ -21,16 +21,16 @@ public class JwtUtil {
     private static final long EXPIRATION_TIME = 24 * 60 * 60 * 1000;
 
     // 生成token
-    public String generateToken(Long userId, String username) {
+    public String generateToken(String userPin, String username) {
         String token = JWT.create()
-                .withSubject(String.valueOf(userId))
+                .withSubject(String.valueOf(userPin))
                 .withClaim("username", username)
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
                 .sign(Algorithm.HMAC256(secret));
         
         // 保存到Redis
-        redisUtil.saveToken(userId, token);
+        redisTokenUtil.saveToken(String.valueOf(userPin), token);
         return token;
     }
 
@@ -41,22 +41,22 @@ public class JwtUtil {
                 .verify(token);
         
         // 验证Redis中的token
-        Long userId = Long.parseLong(jwt.getSubject());
-        if (!redisUtil.validateToken(userId, token)) {
+        String userPin = jwt.getSubject();
+        if (!redisTokenUtil.validateToken(userPin, token)) {
             throw new JWTVerificationException("Token不存在或已失效");
         }
         
         return jwt;
     }
 
-    // 从token中获取用户ID
-    public Long getUserIdFromToken(String token) {
+    // get userPin from token
+    public String getUserIdFromToken(String token) {
         DecodedJWT jwt = verifyToken(token);
-        return Long.parseLong(jwt.getSubject());
+        return jwt.getSubject();
     }
 
     // 使token失效
-    public void invalidateToken(Long userId) {
-        redisUtil.deleteToken(userId);
+    public void invalidateToken(String userPin) {
+        redisTokenUtil.deleteToken(userPin);
     }
-} 
+}
