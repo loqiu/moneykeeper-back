@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Collections;
 
 @Service
@@ -27,6 +28,9 @@ public class LoginServiceImpl implements LoginService {
 
     @Value("${google.oauth2.clientId}")
     private String CLIENT_ID;
+
+    @Value("${google.oauth2.ios.clientId}")
+    private String IOS_CLIENT_ID;
 
     @Autowired
     private UserService userService;
@@ -42,7 +46,7 @@ public class LoginServiceImpl implements LoginService {
         try {
             GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new JacksonFactory())
                     // Specify the CLIENT_ID of the app that accesses the backend:
-                    .setAudience(Collections.singletonList(CLIENT_ID))
+                    .setAudience(Arrays.asList(CLIENT_ID,IOS_CLIENT_ID))
                     // Or, if multiple clients access the backend:
                     //.setAudience(Arrays.asList(CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3))
                     .build();
