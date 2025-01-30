@@ -17,13 +17,9 @@
 # For more information on the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # For more samples to get started with GitHub Action workflows to deploy to Azure: https://github.com/Azure/actions-workflow-samples
 
-name: Build and deploy WAR app to Alibaba Cloud
+name: Build and deploy payment-totec jar app to Alibaba Cloud
 
 env:
-  ALIYUN_ECS_SERVER_IP: ${{ secrets.ALIYUN_ECS_SERVER_IP }}           # Set your ECS server IP
-  ALIYUN_ACCESS_KEY_ID: ${{ secrets.ALIYUN_ACCESS_KEY_ID }}           # Set your Alibaba Cloud Access Key ID
-  ALIYUN_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_ACCESS_KEY_SECRET }}   # Set your Alibaba Cloud Access Key Secret
-  ALIYUN_INSTANCE_ID: ${{ secrets.ALIYUN_INSTANCE_ID }} # The name of your app
   JAVA_VERSION: '17'                          # Set the Java version to use
   DISTRIBUTION: temurin                       # Java distribution, e.g., zulu
 
@@ -49,53 +45,50 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.DISTRIBUTION }}
           cache: 'maven'
-          #server-id: nexus-snapshots
-          #server-username: ${{ secrets.MAVEN_REPO_USERNAME }}
-          #server-password: ${{ secrets.MAVEN_REPO_PASSWORD }}
-          #settings-path: ${{ github.workspace }}/settings.xml
-          overwrite-settings: false
-          
-#      - name: Print workspace path
-#        run: |
-#            echo "Workspace Directory: $GITHUB_WORKSPACE"
-#            ls -la $GITHUB_WORKSPACE
-            
-      #- name: check setting
-      #  run: cat ${{ github.workspace }}/settings.xml
-      #- name: Clean Maven cache for specific artifact
-      #  run: rm -rf ~/.m2/repository/org/rochetec/payment-api
-      #- name: check mvn setting
-      #  run: mvn help:effective-settings --settings ${{ github.workspace }}/settings.xml
+
       - name: Build with Maven
         run: mvn clean package -s ${{ github.workspace }}/settings.xml -Pprod
-        
+      - name: check upload
+        run: |
+          echo "Workspace Directory: $GITHUB_WORKSPACE"
+          ls -la $GITHUB_WORKSPACE
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: java-app
-          path: '${{ github.workspace }}/target/*.war'  # 修改为war包路径
+          path: '${{ github.workspace }}/target/*.jar'  # 修改为jar包路径
 
-#      - name: Print workspace path
+#      - name: check upload-2
 #        run: |
 #          echo "Workspace Directory: $GITHUB_WORKSPACE"
-#          ls -laR $GITHUB_WORKSPACE
+#          ls -la $GITHUB_WORKSPACE/target
 
   deploy:
     permissions:
       contents: none
     runs-on: ubuntu-latest
     needs: build
-    #environment:
-    #  name: 'Production'
-    #  url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
 
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4.1.8
         with:
           name: java-app
-      - name: Display structure of downloaded files
-        run: ls -R
+
+      - name: Stop moneykeeper.service if running
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            if systemctl is-active --quiet moneykeeper.service; then
+              echo "moneykeeper.service is running, stopping it..."
+              systemctl stop moneykeeper.service
+            else
+              echo "moneykeeper.service is NOT running (or not loaded), skip stopping."
+            fi
 
       # 添加清理步骤（放在部署war包之前）
       - name: Clean before deploy
@@ -105,10 +98,7 @@ jobs:
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            systemctl stop tomcat
-            rm -rf /usr/local/tomcat/apache-tomcat-10.1.33/webapps/moneykeeper-back*
-            rm -rf /usr/local/tomcat/apache-tomcat-10.1.33/work/*
-            rm -rf /usr/local/tomcat/apache-tomcat-10.1.33/temp/*
+            rm -rf /usr/local/applicationHomePath/moneykeeper/moneykeeper-back*.jar
 
       - name: Deploy to CentOS
         uses: appleboy/scp-action@master
@@ -116,14 +106,14 @@ jobs:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "*.war"
-          target: "/usr/local/tomcat/apache-tomcat-10.1.33/webapps/"    # 替换为你的Tomcat webapps目录
+          source: "*.jar"
+          target: "/usr/local/applicationHomePath/moneykeeper/"
 
-      - name: Restart Tomcat
+      - name: Restart service
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            systemctl restart tomcat
+            systemctl start moneykeeper.service

@@ -66,7 +66,8 @@ public class MoneyKeeperServiceImpl extends ServiceImpl<MoneyKeeperMapper, Money
     public RecordSummary getSummary(Long userId, LocalDate startDate, LocalDate endDate) {
         // 获取汇总数据
         Map<String, BigDecimal> summary = moneyKeeperMapper.getMoneyKeeperSummary(userId, startDate, endDate);
-        
+        logger.info("summary result - 用户ID: {}, summary: {}, ", userId, summary);
+
         BigDecimal totalIncome = summary.get("totalIncome");
         BigDecimal totalExpense = summary.get("totalExpense");
         BigDecimal balance = summary.get("balance");
