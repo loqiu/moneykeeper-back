@@ -11,7 +11,7 @@
     <groupId>com.loqiu</groupId>
     <artifactId>moneykeeper-back</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <packaging>war</packaging>
+    <packaging>jar</packaging>
     <name>moneykeeper-back</name>
     <description>moneykeeper-back</description>
     <url/>
