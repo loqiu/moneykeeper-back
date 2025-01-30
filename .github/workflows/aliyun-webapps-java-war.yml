@@ -59,10 +59,10 @@ jobs:
           name: java-app
           path: '${{ github.workspace }}/target/*.jar'  # 修改为jar包路径
 
-#      - name: check upload-2
-#        run: |
-#          echo "Workspace Directory: $GITHUB_WORKSPACE"
-#          ls -la $GITHUB_WORKSPACE/target
+      - name: check upload-2
+        run: |
+          echo "Workspace Directory: $GITHUB_WORKSPACE"
+          ls -la $GITHUB_WORKSPACE/target
 
   deploy:
     permissions:
