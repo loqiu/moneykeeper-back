@@ -2,7 +2,7 @@ package com.loqiu.moneykeeper.util;
 
 import com.loqiu.moneykeeper.exception.PaymentException;
 import com.loqiu.moneykeeper.response.MkApiResponse;
-import org.rochetec.model.response.PayApiResponse;
+//import org.rochetec.model.response.PayApiResponse;
 
 public class MkApiResponseUtil {
     private static final Integer SUCCESS_CODE = 200;
@@ -71,16 +71,16 @@ public class MkApiResponseUtil {
     }
 
     // 从支付服务响应转换为本地响应
-    public static <T> MkApiResponse<T> fromPaymentResponse(PayApiResponse<T> response) {
-        if (response == null) {
-            return error("支付服务响应为空");
-        }
-        return MkApiResponse.<T>builder()
-                .code(response.getCode())
-                .message(response.getMessage())
-                .data(response.getData())
-                .build();
-    }
+//    public static <T> MkApiResponse<T> fromPaymentResponse(PayApiResponse<T> response) {
+//        if (response == null) {
+//            return error("支付服务响应为空");
+//        }
+//        return MkApiResponse.<T>builder()
+//                .code(response.getCode())
+//                .message(response.getMessage())
+//                .data(response.getData())
+//                .build();
+//    }
 
     // 创建支付相关的错误响应
     public static <T> MkApiResponse<T> paymentError(String operation, String message) {

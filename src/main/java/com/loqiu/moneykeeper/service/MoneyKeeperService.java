@@ -14,7 +14,7 @@ public interface MoneyKeeperService extends IService<MoneyKeeper> {
     List<MoneyKeeper> findByUserIdAndType(Long userId, String type);
     //获取record 带 Category Name
     List<MoneyKeeperDTO> getAllRecordsWithCategoryName(Long userId, LocalDate startDate, LocalDate endDate);
-
+    List<MoneyKeeperDTO> getAllRecordsByCategoryName(String CategoryName,Long userId, LocalDate startDate, LocalDate endDate);
     /**
      * 获取收支汇总信息
      * @param userId 用户ID

@@ -223,6 +223,24 @@ public class MoneyKeeperController {
             return ResponseEntity.internalServerError().build();
         }
     }
+    @Operation(summary = "根据分类名称获取记账记录")
+    @GetMapping("/listByCategoryName/{categoryName}/{userId}")
+    public ResponseEntity<List<MoneyKeeperDTO>> getAllRecordsByCategoryName(@PathVariable String categoryName,
+                                                                            @PathVariable Long userId,
+                                                                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                                                                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        logger.info("Getting records By category names");
+
+        try {
+            List<MoneyKeeperDTO> records = moneyKeeperService.getAllRecordsByCategoryName(categoryName,userId, startDate, endDate);
+            logger.info("Records with category names found - Output - count: {}, record:{}", records.size(), JSON.toJSONString(records));
+            logger.debug("Records details: {}", records);
+            return ResponseEntity.ok(records);
+        } catch (Exception e) {
+            logger.error("Failed to get records with category names - error: {}", e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 
     @Operation(summary = "根据用户ID获取记账记录")
     @GetMapping("/list/{userId}")

@@ -18,6 +18,12 @@ public interface MoneyKeeperMapper extends BaseMapper<MoneyKeeper> {
                                                               @Param("endDate") LocalDate endDate
     );
 
+    public List<MoneyKeeperDTO> getAllRecordsByCategoryName(@Param("categoryName") String categoryName,
+                                                              @Param("userId") Long userId,
+                                                              @Param("startDate") LocalDate startDate,
+                                                              @Param("endDate") LocalDate endDate
+    );
+
     Map<String, BigDecimal> getMoneyKeeperSummary(@Param("userId") Long userId,
                                                   @Param("startDate") LocalDate startDate,
                                                   @Param("endDate") LocalDate endDate

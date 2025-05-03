@@ -63,6 +63,13 @@ public class MoneyKeeperServiceImpl extends ServiceImpl<MoneyKeeperMapper, Money
     }
 
     @Override
+    public List<MoneyKeeperDTO> getAllRecordsByCategoryName(String categoryName,Long userId, LocalDate startDate, LocalDate endDate) {
+        List<MoneyKeeperDTO> result = moneyKeeperMapper.getAllRecordsByCategoryName(categoryName,userId, startDate, endDate);
+        return result;
+    }
+
+
+    @Override
     public RecordSummary getSummary(Long userId, LocalDate startDate, LocalDate endDate) {
         // 获取汇总数据
         Map<String, BigDecimal> summary = moneyKeeperMapper.getMoneyKeeperSummary(userId, startDate, endDate);

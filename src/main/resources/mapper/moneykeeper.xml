@@ -35,7 +35,42 @@
         where
             mk.deleted_at = 0 and c.deleted_at = 0
         <if test="userId != null">
-            AND mk.user_id >= #{userId}
+            AND mk.user_id = #{userId}
+        </if>
+        <if test="startDate != null">
+            AND mk.transaction_date >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND mk.transaction_date &lt;= #{endDate}
+        </if>
+        order by
+            mk.updated_at desc
+    </select>
+
+    <!-- 查询所有未删除的记录 -->
+    <select id="getAllRecordsByCategoryName" resultMap="MoneyKeeperResultMap">
+        select
+        mk.id as id,
+        mk.user_id as user_id,
+        mk.category_id as category_id,
+        mk.transaction_date as transaction_date,
+        mk.updated_at as updated_at,
+        c.name as category_name,
+        mk.type as type,
+        mk.amount as amount,
+        mk.notes as notes
+        from
+        moneykeeper as mk
+        inner join
+        categories as c
+        on mk.category_id = c.id
+        where
+        mk.deleted_at = 0 and c.deleted_at = 0
+        <if test="userId != null">
+            AND mk.user_id = #{userId}
+        </if>
+        <if test="categoryName != null">
+            AND c.name = #{categoryName}
         </if>
         <if test="startDate != null">
             AND transaction_date >= #{startDate}
@@ -44,7 +79,7 @@
             AND transaction_date &lt;= #{endDate}
         </if>
         order by
-            mk.updated_at desc
+        mk.updated_at desc
     </select>
 
     <select id="getMoneyKeeperSummary" resultType="java.util.Map">
