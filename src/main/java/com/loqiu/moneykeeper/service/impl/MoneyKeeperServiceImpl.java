@@ -89,6 +89,12 @@ public class MoneyKeeperServiceImpl extends ServiceImpl<MoneyKeeperMapper, Money
                 .build();
     }
 
+    @Override
+    public Boolean insertMoneyKeeper(MoneyKeeper moneyKeeper) {
+        Boolean result = moneyKeeperMapper.insertMoneyKeeper(moneyKeeper);
+        return result;
+    }
+
     private void checkAndSendBalanceWarning(Long userId, BigDecimal totalIncome, BigDecimal balance) {
         if (totalIncome.compareTo(BigDecimal.ZERO) <= 0) {
             return; // 如果没有收入，直接返回

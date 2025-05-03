@@ -2,6 +2,7 @@ package com.loqiu.moneykeeper.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.loqiu.moneykeeper.dto.MoneyKeeperDTO;
+import com.loqiu.moneykeeper.entity.Category;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import org.apache.ibatis.annotations.Param;
 
@@ -34,4 +35,7 @@ public interface MoneyKeeperMapper extends BaseMapper<MoneyKeeper> {
                                             @Param("endDate") LocalDate endDate
     );
 
+    Boolean insertCategory(Category category);
+
+    Boolean insertMoneyKeeper(MoneyKeeper moneyKeeper);
 } 

@@ -23,4 +23,5 @@ public interface MoneyKeeperService extends IService<MoneyKeeper> {
      * @return 收支汇总信息
      */
     RecordSummary getSummary(Long userId, LocalDate startDate, LocalDate endDate);
+    Boolean insertMoneyKeeper(MoneyKeeper moneyKeeper);
 } 

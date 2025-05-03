@@ -109,4 +109,16 @@
         ORDER BY transaction_date DESC
     </select>
 
+    <insert id="insertCategory">
+        INSERT INTO categories (name, icon, color, type, user_id, created_at, updated_at)
+        VALUES (#{name}, #{icon}, #{color}, #{type}::categories_type, #{userId}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <insert id="insertMoneyKeeper">
+        INSERT INTO moneykeeper
+        (user_id, category_id, type, amount, transaction_date, notes, created_at, updated_at)
+        VALUES
+            (#{userId}, #{categoryId}, #{type}::moneykeeper_type, #{amount}, #{transactionDate}, #{notes}, #{createdAt}, #{updatedAt});
+    </insert>
+
 </mapper>

@@ -42,7 +42,7 @@ public class MoneyKeeperController {
         }
         
         try {
-            moneyKeeperService.save(record);
+            moneyKeeperService.insertMoneyKeeper(record);
             logger.info("Record created successfully - Output - record: {}", record);
             return ResponseEntity.ok(record);
         } catch (Exception e) {

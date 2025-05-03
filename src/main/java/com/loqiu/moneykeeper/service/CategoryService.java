@@ -9,4 +9,5 @@ public interface CategoryService extends IService<Category> {
     // 自定义业务方法
     List<Category> findByUserId(Long userId);
     List<Category> findByType(String type);
+    Boolean insertCategory(Category category);
 } 

@@ -34,7 +34,7 @@ public class CategoryController {
         
         try {
             category.setUserId(id);
-            categoryService.save(category);
+            categoryService.insertCategory(category);
             logger.info("Category created successfully - Output - category: {}", category);
             return ResponseEntity.ok(category);
         } catch (Exception e) {
