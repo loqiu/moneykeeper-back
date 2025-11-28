@@ -84,9 +84,9 @@
 
     <select id="getMoneyKeeperSummary" resultType="java.util.Map">
         SELECT
-            COALESCE(SUM(CASE WHEN type = '收入' THEN amount ELSE 0 END), 0) as "totalIncome",
-            COALESCE(SUM(CASE WHEN type = '支出' THEN amount ELSE 0 END), 0) as "totalExpense",
-            COALESCE(SUM(CASE WHEN type = '收入' THEN amount ELSE -amount END), 0) as "balance"
+            COALESCE(SUM(CASE WHEN type = '收入' THEN amount ELSE 0 END), 0) as totalIncome,
+            COALESCE(SUM(CASE WHEN type = '支出' THEN amount ELSE 0 END), 0) as totalExpense,
+            COALESCE(SUM(CASE WHEN type = '收入' THEN amount ELSE -amount END), 0) as balance
         FROM moneykeeper mk
         WHERE user_id = #{userId} and mk.deleted_at = 0
         <if test="startDate != null">
@@ -99,7 +99,7 @@
 
     <select id="getMoneyKeeperRecords" resultType="com.loqiu.moneykeeper.entity.MoneyKeeper">
         SELECT * FROM moneykeeper
-        WHERE user_id = #{userId} and mk.deleted_at = 0
+        WHERE user_id = #{userId} and deleted_at = 0
         <if test="startDate != null">
             AND transaction_date >= #{startDate}
         </if>
@@ -111,14 +111,14 @@
 
     <insert id="insertCategory">
         INSERT INTO categories (name, icon, color, type, user_id, created_at, updated_at)
-        VALUES (#{name}, #{icon}, #{color}, #{type}::categories_type, #{userId}, #{createdAt}, #{updatedAt})
+        VALUES (#{name}, #{icon}, #{color}, #{type}, #{userId}, #{createdAt}, #{updatedAt})
     </insert>
 
     <insert id="insertMoneyKeeper">
         INSERT INTO moneykeeper
         (user_id, category_id, type, amount, transaction_date, notes, created_at, updated_at)
         VALUES
-            (#{userId}, #{categoryId}, #{type}::moneykeeper_type, #{amount}, #{transactionDate}, #{notes}, #{createdAt}, #{updatedAt});
+            (#{userId}, #{categoryId}, #{type}, #{amount}, #{transactionDate}, #{notes}, #{createdAt}, #{updatedAt});
     </insert>
 
 </mapper>

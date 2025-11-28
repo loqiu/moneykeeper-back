@@ -23,6 +23,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
      `id` bigint NOT NULL AUTO_INCREMENT,
+     `user_pin` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
      `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
      `email` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
      `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -37,6 +38,7 @@ CREATE TABLE `users` (
      `deleted_time` timestamp NULL DEFAULT NULL,
      PRIMARY KEY (`id`),
      UNIQUE KEY `username` (`username`),
-     UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+     UNIQUE KEY `email` (`email`),
+     UNIQUE KEY `user_pin` (`user_pin`)
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SET FOREIGN_KEY_CHECKS = 1;

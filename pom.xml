@@ -149,6 +149,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>1.18.42</version>
             <optional>true</optional>
         </dependency>
         <dependency>
@@ -235,63 +236,51 @@
         </dependency>
 
     </dependencies>
-    <distributionManagement>
-        <repository>
-            <id>nexus-releases</id>
-            <url>http://8.208.90.124:8283/repository/maven-releases/</url>
-        </repository>
-        <snapshotRepository>
-            <id>nexus-snapshots</id>
-            <url>http://8.208.90.124:8283/repository/maven-snapshots/</url>
-        </snapshotRepository>
-    </distributionManagement>
-
-    <repositories>
-<!--        <repository>-->
-<!--            <id>nexus-releases</id>-->
-<!--            <name>nexus-rotec-private</name>-->
-<!--            <url>http://8.208.90.124:8283/repository/maven-releases/</url>-->
-<!--            <releases>-->
-<!--                <enabled>true</enabled>-->
-<!--                <updatePolicy>daily</updatePolicy>-->
-<!--            </releases>-->
-<!--            <snapshots>-->
-<!--                <enabled>true</enabled>-->
-<!--                <checksumPolicy>warn</checksumPolicy>-->
-<!--            </snapshots>-->
-<!--            <layout>default</layout>-->
-<!--        </repository>-->
-<!--        <repository>-->
-<!--            <id>nexus-snapshots</id>-->
-<!--            <name>nexus-rotec-private</name>-->
-<!--            <url>http://8.208.90.124:8283/repository/maven-snapshots/</url>-->
-<!--            <releases>-->
-<!--                <enabled>true</enabled>-->
-<!--                <updatePolicy>daily</updatePolicy>-->
-<!--            </releases>-->
-<!--            <snapshots>-->
-<!--                <enabled>true</enabled>-->
-<!--                <checksumPolicy>warn</checksumPolicy>-->
-<!--            </snapshots>-->
-<!--            <layout>default</layout>-->
-<!--        </repository>-->
-    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
     <profiles>
-<!--        <profile>-->
-<!--            <id>dev</id>-->
-<!--            <properties>-->
-<!--                <spring.profiles.active>dev</spring.profiles.active>-->
-<!--            </properties>-->
-<!--        </profile>-->
-<!--        <profile>-->
-<!--            <id>prod</id>-->
-<!--            <properties>-->
-<!--                <spring.profiles.active>prod</spring.profiles.active>-->
-<!--            </properties>-->
-<!--        </profile>-->
+        <profile>
+            <id>dev</id>
+            <properties>
+                <spring.profiles.active>dev</spring.profiles.active>
+            </properties>
+        </profile>
+        <profile>
+            <id>prod</id>
+            <properties>
+                <spring.profiles.active>prod</spring.profiles.active>
+            </properties>
+        </profile>
     </profiles>
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.42</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
