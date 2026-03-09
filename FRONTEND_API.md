@@ -1,8 +1,10 @@
 ## MoneyKeeper 前端联调文档
 
-本文档基于当前 `codex/test` 分支代码整理，面向前端联调与页面改造使用。
+本文档基于当前 `codex/test` 分支代码整理，供前端联调使用。
 
-## 1. 基础信息
+接口、参数、返回结构、错误码一旦发生变更，必须同步更新本文档。
+
+## 1. 全局约定
 
 ### 1.1 服务地址
 
@@ -10,9 +12,9 @@
 - 默认 Base URL：`http://{host}:8081`
 - 业务接口统一前缀：`/api`
 
-### 1.2 认证方式
+### 1.2 公开接口
 
-除以下公开接口外，其余 `/api/**` 接口都需要携带 JWT：
+以下接口不需要 JWT：
 
 - `POST /api/auth/login`
 - `POST /api/auth/register`
@@ -21,7 +23,7 @@
 - `GET /swagger-ui/**`
 - `GET /v3/api-docs/**`
 
-请求头格式：
+除上面之外，其余 `/api/**` 接口都要带：
 
 ```http
 Authorization: Bearer <token>
@@ -30,11 +32,29 @@ Authorization: Bearer <token>
 ### 1.3 角色规则
 
 - `user`：普通用户，只能访问自己的用户资料、分类、记账记录、通知和导出数据
-- `admin`：管理员，可以跨用户访问大部分资源，也能访问管理类接口
+- `admin`：管理员，可以跨用户访问数据，也可以调用管理接口
 
-### 1.4 响应模型
+### 1.4 统一认证失败返回
 
-当前项目存在两套成功/失败响应风格，前端需要按模块区分。
+这是前端最需要先处理的分支。
+
+对于所有需要 JWT 的接口：
+
+- 如果没有带 `Authorization` 头
+- 或 token 不是 `Bearer <token>` 格式
+- 或 token 无效/过期/被登出
+
+请求会在 JWT 拦截器里直接被拒绝，真实返回是：
+
+- HTTP 状态码：`401`
+- Body：纯文本 `Unauthorized`
+- 不是 JSON
+- 也不是 `MkApiResponse`
+- 也不是 `ApiErrorResponse`
+
+前端需要优先按这个分支处理，例如跳登录、清 token、提示会话失效。
+
+### 1.5 两套响应风格
 
 #### A. `MkApiResponse<T>`
 
@@ -56,15 +76,25 @@ Authorization: Bearer <token>
 }
 ```
 
-字段说明：
+注意：
 
-- `code`：业务状态码，不一定等于 HTTP 状态码
-- `message`：提示信息
-- `data`：实际返回数据
-- `timestamp`：响应生成时间
-- `requestId`：请求标识
+- `code` 是业务码
+- controller 内部失败时，HTTP 通常仍然是 `200`
+- 前端要优先看 `code`，不能只看 HTTP 状态码
 
-#### B. 直接返回实体或 DTO
+常见业务码：
+
+- `200`：成功
+- `400`：请求参数错误
+- `401`：业务层认证失败
+- `403`：无权限
+- `404`：资源不存在
+- `409`：资源冲突
+- `500`：服务内部错误
+- `501`：功能骨架已接入但尚未实现
+- `503`：功能未启用或依赖未就绪
+
+#### B. 直接返回实体 / DTO
 
 用于：
 
@@ -76,11 +106,11 @@ Authorization: Bearer <token>
 - `/api/notifications/**`
 - `/api/notifications/manage/**`
 
-成功时直接返回 JSON 对象或数组，不再包 `data`。
+成功时直接返回对象或数组，不包 `data`。
 
 #### C. `ApiErrorResponse`
 
-上述直接返回实体/DTO 的接口，在失败时统一返回：
+上述直接返回实体/DTO 的接口，在进入 controller 后发生错误时，统一返回：
 
 ```json
 {
@@ -92,11 +122,11 @@ Authorization: Bearer <token>
 }
 ```
 
-### 1.5 日期与枚举约定
+### 1.6 日期与枚举
 
 - 日期：`yyyy-MM-dd`
 - 日期时间：ISO-8601，例如 `2026-03-09T01:00:00`
-- 记录类型 `type`：当前代码建议使用 `income` 或 `expense`
+- 记录类型 `type`：建议统一使用 `income` / `expense`
 - 通知类型 `type`：`success`、`warning`、`info`、`error`、`heartbeat`、`connect`
 
 ## 2. 常用数据结构
@@ -158,8 +188,6 @@ Authorization: Bearer <token>
 
 ### 2.6 UserUpdateRequest
 
-所有字段都可选，至少传一个：
-
 ```json
 {
   "email": "alice.new@example.com",
@@ -170,7 +198,7 @@ Authorization: Bearer <token>
 
 ### 2.7 User
 
-注意：`password` 字段为 write-only，不会在响应里返回。
+注意：响应里不会返回 `password`。
 
 ```json
 {
@@ -191,8 +219,6 @@ Authorization: Bearer <token>
 ```
 
 ### 2.8 CategoryRequest
-
-创建时字段必填；更新时字段可选。
 
 ```json
 {
@@ -222,7 +248,7 @@ Authorization: Bearer <token>
 
 ### 2.10 MoneyKeeperCreateRequest
 
-普通用户传 `userId` 会被忽略，后端使用当前登录用户；管理员可代其他用户创建。
+普通用户传 `userId` 会被忽略，后端使用当前登录用户；管理员可以代其他用户创建。
 
 ```json
 {
@@ -236,8 +262,6 @@ Authorization: Bearer <token>
 ```
 
 ### 2.11 MoneyKeeperUpdateRequest
-
-至少传一个字段：
 
 ```json
 {
@@ -266,8 +290,6 @@ Authorization: Bearer <token>
 ```
 
 ### 2.13 MoneyKeeperDTO
-
-用于带分类名的记录列表、搜索、Excel 导出。
 
 ```json
 {
@@ -388,8 +410,6 @@ Authorization: Bearer <token>
 
 ### 2.22 MkPaymentIntentDTO
 
-当前支付模块尚未真正落地，成功数据结构预留如下：
-
 ```json
 {
   "id": "pi_xxx",
@@ -432,15 +452,17 @@ Authorization: Bearer <token>
 }
 ```
 
-## 3. 认证模块
+## 3. 认证模块 `/api/auth`
+
+说明：本模块使用 `MkApiResponse<T>`。除 JWT 拦截失败外，controller 内部错误通常仍然是 HTTP `200`，前端要读 `code`。
 
 ### 3.1 `POST /api/auth/login`
 
 - 认证：否
 - Body：`LoginRequest`
-- 成功响应：`MkApiResponse<LoginResponse>`
-- 失败业务码：
-  - `400`：用户名或密码缺失
+- 成功：`MkApiResponse<LoginResponse>`
+- 业务错误码：
+  - `400`：用户名或密码为空
   - `404`：用户不存在
   - `401`：密码错误
   - `500`：登录失败
@@ -449,146 +471,176 @@ Authorization: Bearer <token>
 
 - 认证：是
 - Header：`Authorization: Bearer <token>`
-- Body：无
-- 成功响应：`MkApiResponse<Boolean>`
+- 成功：`MkApiResponse<Boolean>`
+- 错误：
+  - HTTP `401` + 文本 `Unauthorized`：token 缺失、非法、过期、已失效
 
 ### 3.3 `POST /api/auth/register`
 
 - 认证：否
 - Body：`RegisterRequest`
-- 成功响应：`MkApiResponse<User>`
-- 失败业务码：
-  - `400`：字段校验失败
-  - `409`：用户名或邮箱已存在
+- 成功：`MkApiResponse<User>`
+- 业务错误码：
+  - `400`：字段为空、长度非法、邮箱格式非法、手机号格式非法
+  - `409`：用户名已存在或邮箱已存在
   - `500`：注册失败
-
-注意：
-
-- 注册成功返回 `User`，但不返回 `password`
-- `email`、`firstName`、`lastName` 为必填
 
 ### 3.4 `POST /api/auth/google`
 
 - 认证：否
 - Body：`GoogleAuthRequest`
-- 成功响应：`MkApiResponse<LoginResponse>`
-- 失败业务码：
+- 成功：`MkApiResponse<LoginResponse>`
+- 业务错误码：
   - `400`：`idToken` 为空
   - `401`：Google 登录失败或 token 非法
   - `500`：服务内部异常
 
-## 4. 用户模块
+## 4. 用户模块 `/api/users`
+
+说明：
+
+- 成功返回实体 `User`
+- 进入 controller 后失败返回 `ApiErrorResponse`
+- 但 token 无效时，仍然先走全局 `401 Unauthorized` 文本响应
 
 ### 4.1 `POST /api/users`
 
 - 认证：是
 - 权限：`admin`
 - Body：`UserCreateRequest`
-- 成功响应：`User`
-- 失败响应：`ApiErrorResponse`
+- 成功：`User`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：非管理员
+  - `400`：请求体为空、用户名/密码为空、用户名长度非法、密码长度非法、邮箱格式非法、手机号格式非法、角色非法、用户名已存在、邮箱已存在
+  - `500`：未处理异常
 
 ### 4.2 `GET /api/users/{id}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `id`: 用户 ID
-- 成功响应：`User`
+- Path：`id` 用户 ID
+- 成功：`User`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `404`：用户不存在
 
 ### 4.3 `GET /api/users/username/{username}`
 
 - 认证：是
 - 权限：
-  - 管理员可查任意用户名
-  - 普通用户只能查自己的 `username`
-- Path 参数：
-  - `username`: 用户名
-- 成功响应：`User`
+  - 管理员：可查任意用户名
+  - 普通用户：只能查自己的用户名
+- Path：`username`
+- 成功：`User`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `400`：用户名为空
+  - `403`：普通用户查询他人用户名
+  - `404`：用户不存在
 
 ### 4.4 `PUT /api/users/{id}`
 
 - 认证：是
 - 权限：本人或管理员
+- Path：`id` 用户 ID
 - Body：`UserUpdateRequest`
-- 成功响应：`User`
-
-联调说明：
-
-- 普通用户不能改 `role`
-- 所有字段可选，但如果传了空串会被判为非法
-- 修改 `password` 时，响应里仍不会返回密码
+- 成功：`User`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员；普通用户试图改 `role`
+  - `400`：请求体为空、传入空字符串、用户名长度非法、密码长度非法、邮箱格式非法、手机号格式非法、角色非法、用户名重复、邮箱重复
+  - `404`：用户不存在
 
 ### 4.5 `DELETE /api/users/{id}`
 
 - 认证：是
 - 权限：本人或管理员
-- 成功响应：空 body，HTTP `200`
-- 实际行为：逻辑删除
+- Path：`id` 用户 ID
+- 成功：空 body，HTTP `200`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `404`：用户不存在
 
-## 5. 分类模块
+## 5. 分类模块 `/api/categories`
+
+说明：
+
+- 成功返回实体 `Category` 或数组
+- 失败返回 `ApiErrorResponse`
 
 ### 5.1 `POST /api/categories/{id}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `id`: 目标用户 ID
+- Path：`id` 目标用户 ID
 - Body：`CategoryRequest`
-- 成功响应：`Category`
+- 成功：`Category`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：请求体为空、`name/icon/color/type` 缺失或为空白
 
-注意：
-
-- 这里的 `{id}` 表示用户 ID，不是分类 ID
-- 创建时 `name`、`icon`、`color`、`type` 都必填
+注意：这里的 `{id}` 是用户 ID，不是分类 ID。
 
 ### 5.2 `GET /api/categories/{id}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `id`: 分类 ID
-- 成功响应：`Category`
+- Path：`id` 分类 ID
+- 成功：`Category`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `404`：分类不存在
 
 ### 5.3 `GET /api/categories/user/{userId}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-- 成功响应：`Category[]`
+- Path：`userId`
+- 成功：`Category[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
 
 ### 5.4 `GET /api/categories/type/{type}`
 
 - 认证：是
 - 权限：
-  - 管理员：查询所有该类型分类
-  - 普通用户：仅查询自己的该类型分类
-- Path 参数：
-  - `type`: 分类类型，建议 `income` / `expense`
-- 成功响应：`Category[]`
+  - 管理员：查所有该类型分类
+  - 普通用户：只查自己的该类型分类
+- Path：`type`
+- 成功：`Category[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `400`：`type` 为空
 
 ### 5.5 `PUT /api/categories/{id}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `id`: 分类 ID
+- Path：`id` 分类 ID
 - Body：`CategoryRequest`
-- 成功响应：`Category`
-
-联调说明：
-
-- 更新时字段可选，但至少要传一个
-- 更新成功后会刷新该分类下记录的搜索索引
+- 成功：`Category`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：请求体为空、所有字段都没传、某个传入字段是空白字符串
+  - `404`：分类不存在
 
 ### 5.6 `DELETE /api/categories/{id}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `id`: 分类 ID
-- 成功响应：空 body，HTTP `200`
-- 实际行为：逻辑删除
+- Path：`id` 分类 ID
+- 成功：空 body，HTTP `200`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `404`：分类不存在，或分类已被逻辑删除
 
 ### 5.7 `GET /api/categories/list`
 
@@ -596,97 +648,115 @@ Authorization: Bearer <token>
 - 权限：
   - 管理员：查所有分类
   - 普通用户：只查自己的分类
-- 成功响应：`Category[]`
+- 成功：`Category[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
 
 ### 5.8 `GET /api/categories/user/{userId}/type/{type}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-  - `type`: 分类类型
-- 成功响应：`Category[]`
+- Path：`userId`、`type`
+- 成功：`Category[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：`type` 为空
 
 ### 5.9 `GET /api/categories/list/{type}`
 
 - 认证：是
 - 权限：
-  - 管理员：可用 `userId` 查询任意用户
+  - 管理员：可用 `userId` 查任意用户
   - 普通用户：若传 `userId`，必须等于自己
-- Path 参数：
-  - `type`: 分类类型
-- Query 参数：
-  - `userId`：可选
-- 成功响应：`Category[]`
+- Path：`type`
+- Query：
+  - `userId` 可选
+- 成功：`Category[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `400`：`type` 为空
+  - `403`：普通用户传了其他人的 `userId`
 
-## 6. 记录模块
+## 6. 记录模块 `/api/records`
+
+说明：
+
+- 成功返回实体 `MoneyKeeper`、数组、`MoneyKeeperDTO[]` 或 `RecordSummary`
+- 失败返回 `ApiErrorResponse`
 
 ### 6.1 `POST /api/records`
 
 - 认证：是
 - 权限：本人或管理员
 - Body：`MoneyKeeperCreateRequest`
-- 成功响应：`MoneyKeeper`
+- 成功：`MoneyKeeper`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `400`：请求体为空、`categoryId` 缺失、`type` 缺失、`amount` 非法、`transactionDate` 缺失、分类不属于目标用户、记录类型与分类类型不一致
+  - `404`：分类不存在
 
-校验规则：
-
-- `categoryId` 必填
-- `type` 必填
-- `amount` 必须大于 0
-- `transactionDate` 必填
-- 记录类型必须和分类类型一致
+注意：普通用户传 `userId` 会被忽略，后端使用当前登录用户；管理员可代其他用户创建。
 
 ### 6.2 `GET /api/records/{id}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `id`: 记录 ID
-- 成功响应：`MoneyKeeper`
+- Path：`id` 记录 ID
+- 成功：`MoneyKeeper`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `404`：记录不存在
 
 ### 6.3 `GET /api/records/user/{userId}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-- Query 参数：
-  - `startDate`: 必填
-  - `endDate`: 必填
-- 成功响应：`MoneyKeeper[]`
+- Path：`userId`
+- Query：
+  - `startDate` 必填
+  - `endDate` 必填
+- 成功：`MoneyKeeper[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：开始/结束日期缺失，或结束日期早于开始日期
 
 ### 6.4 `GET /api/records/user/{userId}/type/{type}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-  - `type`: 记录类型
-- 成功响应：`MoneyKeeper[]`
+- Path：`userId`、`type`
+- 成功：`MoneyKeeper[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：`type` 为空
 
 ### 6.5 `PUT /api/records/{id}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `id`: 记录 ID
+- Path：`id` 记录 ID
 - Body：`MoneyKeeperUpdateRequest`
-- 成功响应：`MoneyKeeper`
-
-联调说明：
-
-- 至少传一个字段
-- 如果修改 `categoryId` 或 `type`，仍要求记录类型和目标分类类型一致
-- 更新成功后会触发该条记录的搜索同步
+- 成功：`MoneyKeeper`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：请求体为空、没有任何可更新字段、`type` 空白、`amount` 非法、分类不属于记录所属用户、记录类型与分类类型不一致
+  - `404`：记录不存在或分类不存在
 
 ### 6.6 `DELETE /api/records/{id}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `id`: 记录 ID
-- 成功响应：空 body，HTTP `200`
-- 实际行为：逻辑删除
+- Path：`id` 记录 ID
+- 成功：空 body，HTTP `200`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `404`：记录不存在
 
 ### 6.7 `GET /api/records/list`
 
@@ -694,189 +764,247 @@ Authorization: Bearer <token>
 - 权限：
   - 管理员：所有记录
   - 普通用户：自己的记录
-- 成功响应：`MoneyKeeper[]`
+- 成功：`MoneyKeeper[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
 
 ### 6.8 `GET /api/records/listWithCategoryName/{userId}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-- Query 参数：
-  - `startDate`: 可选
-  - `endDate`: 可选
-- 成功响应：`MoneyKeeperDTO[]`
+- Path：`userId`
+- Query：
+  - `startDate` 可选
+  - `endDate` 可选
+- 成功：`MoneyKeeperDTO[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：结束日期早于开始日期
 
 ### 6.9 `GET /api/records/listByCategoryName/{categoryName}/{userId}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `categoryName`: 分类名称
-  - `userId`: 用户 ID
-- Query 参数：
-  - `startDate`: 可选
-  - `endDate`: 可选
-- 成功响应：`MoneyKeeperDTO[]`
+- Path：`categoryName`、`userId`
+- Query：
+  - `startDate` 可选
+  - `endDate` 可选
+- 成功：`MoneyKeeperDTO[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：`categoryName` 为空，或结束日期早于开始日期
 
 ### 6.10 `GET /api/records/list/{userId}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-- Query 参数：
-  - `type`: 可选
-  - `startDate`: 可选
-  - `endDate`: 可选
-- 成功响应：`MoneyKeeper[]`
+- Path：`userId`
+- Query：
+  - `type` 可选
+  - `startDate` 可选
+  - `endDate` 可选
+- 成功：`MoneyKeeper[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：结束日期早于开始日期
 
 ### 6.11 `GET /api/records/summary/{userId}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-- Query 参数：
-  - `startDate`: 可选
-  - `endDate`: 可选
-- 成功响应：`RecordSummary`
+- Path：`userId`
+- Query：
+  - `startDate` 可选
+  - `endDate` 可选
+- 成功：`RecordSummary`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：结束日期早于开始日期
 
-## 7. 搜索模块
+## 7. 搜索模块 `/api/search/records`
+
+说明：
+
+- 成功返回 DTO
+- 失败返回 `ApiErrorResponse`
+- 依赖 Elasticsearch，未启用或未就绪时可能返回 `503`
 
 ### 7.1 `GET /api/search/records`
 
 - 认证：是
 - 权限：
   - 普通用户默认查自己
-  - 管理员可通过 `userId` 查任意用户
-- Query 参数：
-  - `userId`: 可选
-  - `query`: 可选，全文关键字
-  - `type`: 可选
-  - `categoryId`: 可选
-  - `categoryName`: 可选
-  - `startDate`: 可选
-  - `endDate`: 可选
-  - `limit`: 可选，默认 `20`，范围 `1-100`
-- 成功响应：`RecordSearchResultDTO[]`
-- 失败响应：`ApiErrorResponse`
+  - 管理员可通过 `userId` 查询任意用户
+- Query：
+  - `userId` 可选
+  - `query` 可选
+  - `type` 可选
+  - `categoryId` 可选
+  - `categoryName` 可选
+  - `startDate` 可选
+  - `endDate` 可选
+  - `limit` 可选，默认 `20`，范围 `1-100`
+- 成功：`RecordSearchResultDTO[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：普通用户搜索他人数据
+  - `400`：结束日期早于开始日期，或 `limit` 不在 `1-100`
+  - `503`：Elasticsearch 功能关闭或 client 未就绪
 
 ### 7.2 `POST /api/search/records/reindex`
 
 - 认证：是
 - 权限：`admin`
-- Query 参数：
-  - `userId`: 可选；不传表示全量重建
-- 成功响应：`RecordSearchReindexResultDTO`
+- Query：
+  - `userId` 可选；不传表示全量重建
+- 成功：`RecordSearchReindexResultDTO`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：非管理员
+  - `503`：Elasticsearch 功能关闭或 client 未就绪
 
 ### 7.3 `GET /api/search/records/stats`
 
 - 认证：是
 - 权限：`admin`
-- Query 参数：
-  - `userId`: 可选；不传表示整个索引
-- 成功响应：`RecordSearchIndexStatsDTO`
+- Query：
+  - `userId` 可选；不传表示全索引统计
+- 成功：`RecordSearchIndexStatsDTO`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：非管理员
+  - `503`：Elasticsearch 功能关闭或 client 未就绪
 
-## 8. Excel 导出模块
+## 8. Excel 导出模块 `/api/excel`
 
 ### 8.1 `GET /api/excel/download/{userId}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-- Query 参数：
-  - `type`: 可选
-  - `startDate`: 可选
-  - `endDate`: 可选
-- 成功响应：二进制 Excel 文件
-- `Content-Type`：`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+- Path：`userId`
+- Query：
+  - `type` 可选
+  - `startDate` 可选
+  - `endDate` 可选
+- 成功：Excel 二进制文件
+- Header：
+  - `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+  - `Content-Disposition: attachment;filename*=UTF-8''records_yyyy-MM-dd.xlsx`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：结束日期早于开始日期
+  - `500`：Excel 文件生成失败
 
 前端建议：
 
 - 请求时使用 `responseType: 'blob'`
-- 若后端返回非 `200`，需要尝试按 JSON 解析错误体
+- 失败时尝试把响应解析成 JSON 或文本错误
 
-## 9. 通知与 SSE 模块
+## 9. 通知与 SSE 模块 `/api/notifications`
+
+说明：
+
+- 普通 HTTP 通知接口成功时返回字符串
+- 失败时返回 `ApiErrorResponse`
+- SSE 订阅接口成功时返回 `text/event-stream`
 
 ### 9.1 `GET /api/notifications/subscribe/{userId}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-- 返回：`text/event-stream`
+- Path：`userId`
+- 成功：`text/event-stream`
+- SSE 事件：
+  - `connect`
+  - `heartbeat`
+  - `message`
+- 错误：
+  - `401`：token 缺失/非法/过期，返回纯文本 `Unauthorized`
+  - `403`：不是本人且不是管理员
 
-SSE 事件说明：
-
-- `connect`：建立连接时立即推送
-- `heartbeat`：大约每 30 秒推送一次
-- `message`：业务通知消息
+前端注意：浏览器原生 `EventSource` 不方便携带 `Authorization` 头。如果前端使用原生 `EventSource(url)`，这个接口大概率会在服务端被 JWT 拦截成 `401`。需要使用支持自定义 header 的方案，或改造认证方式。
 
 ### 9.2 `POST /api/notifications/send/{userId}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
+- Path：`userId`
 - Body：`NotificationMessage`
-- 成功响应：字符串 `"Message sent"`
+- 成功：字符串 `"Message sent"`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：请求体为空、`title` 为空、`message` 为空、`type` 为空
 
 ### 9.3 `POST /api/notifications/broadcast`
 
 - 认证：是
 - 权限：`admin`
 - Body：`NotificationMessage`
-- 成功响应：字符串 `"Broadcast sent"`
+- 成功：字符串 `"Broadcast sent"`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：非管理员
+  - `400`：请求体为空、`title` 为空、`message` 为空、`type` 为空
 
 ### 9.4 `POST /api/notifications/send/{userId}/success`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-- Query 参数：
-  - `title`: 必填
-  - `message`: 必填
-- 成功响应：字符串 `"Success message sent"`
+- Path：`userId`
+- Query：`title`、`message`
+- 成功：字符串 `"Success message sent"`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：`title` 或 `message` 为空
 
 ### 9.5 `POST /api/notifications/send/{userId}/error`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-- Query 参数：
-  - `title`: 必填
-  - `message`: 必填
-- 成功响应：字符串 `"Error message sent"`
+- Path：`userId`
+- Query：`title`、`message`
+- 成功：字符串 `"Error message sent"`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+  - `400`：`title` 或 `message` 为空
 
 ### 9.6 `POST /api/notifications/broadcast/success`
 
 - 认证：是
 - 权限：`admin`
-- Query 参数：
-  - `title`: 必填
-  - `message`: 必填
-- 成功响应：字符串 `"Success broadcast sent"`
+- Query：`title`、`message`
+- 成功：字符串 `"Success broadcast sent"`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：非管理员
+  - `400`：`title` 或 `message` 为空
 
 ### 9.7 `POST /api/notifications/broadcast/error`
 
 - 认证：是
 - 权限：`admin`
-- Query 参数：
-  - `title`: 必填
-  - `message`: 必填
-- 成功响应：字符串 `"Error broadcast sent"`
+- Query：`title`、`message`
+- 成功：字符串 `"Error broadcast sent"`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：非管理员
+  - `400`：`title` 或 `message` 为空
 
-## 10. SSE 管理模块
+## 10. SSE 管理模块 `/api/notifications/manage`
 
 ### 10.1 `GET /api/notifications/manage/connections`
 
 - 认证：是
 - 权限：`admin`
-- 成功响应：
+- 成功：
 
 ```json
 {
@@ -885,13 +1013,16 @@ SSE 事件说明：
 }
 ```
 
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：非管理员
+
 ### 10.2 `GET /api/notifications/manage/check/{userId}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-- 成功响应：
+- Path：`userId`
+- 成功：
 
 ```json
 {
@@ -900,21 +1031,27 @@ SSE 事件说明：
 }
 ```
 
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
+
 ### 10.3 `POST /api/notifications/manage/disconnect/{userId}`
 
 - 认证：是
 - 权限：本人或管理员
-- Path 参数：
-  - `userId`: 用户 ID
-- 成功响应：字符串
+- Path：`userId`
+- 成功：
   - `"Connection disconnected"`
   - 或 `"User is not connected"`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：不是本人且不是管理员
 
 ### 10.4 `GET /api/notifications/manage/stats`
 
 - 认证：是
 - 权限：`admin`
-- 成功响应：
+- 成功：
 
 ```json
 {
@@ -924,13 +1061,20 @@ SSE 事件说明：
 }
 ```
 
-## 11. 集成状态模块
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：非管理员
+
+## 11. 集成状态模块 `/api/integrations`
 
 ### 11.1 `GET /api/integrations/status`
 
 - 认证：是
 - 权限：`admin`
-- 成功响应：`IntegrationModuleStatusDTO[]`
+- 成功：`IntegrationModuleStatusDTO[]`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：非管理员
 
 当前模块名包括：
 
@@ -945,143 +1089,186 @@ SSE 事件说明：
 
 - 认证：是
 - 权限：`admin`
-- Path 参数：
-  - `module`: 模块名
-- 成功响应：`IntegrationModuleStatusDTO`
+- Path：`module`
+- 成功：`IntegrationModuleStatusDTO`
+- 错误：
+  - `401`：token 缺失/非法/过期
+  - `403`：非管理员
+  - `404`：模块名不存在
 
-## 12. Kafka 调试模块
+## 12. Kafka 调试模块 `/api/kafka`
+
+说明：
+
+- 本模块使用 `MkApiResponse<T>`
+- token 校验失败时仍会先返回真实 HTTP `401` 文本 `Unauthorized`
+- 进入 controller 后的错误，多数仍是 HTTP `200` + `code != 200`
 
 ### 12.1 `POST /api/kafka/send`
 
 - 认证：是
 - 权限：`admin`
-- Query 参数：
-  - `topic`: 可选，默认 `quickstart-events`
-  - `key`: 可选，默认 `message`
-  - `message`: 必填
-- 成功响应：`MkApiResponse<String>`
+- Query：
+  - `topic` 可选，默认 `quickstart-events`
+  - `key` 可选，默认 `message`
+  - `message` 必填
+- 成功：`MkApiResponse<String>`
+- 业务错误码：
+  - `403`：非管理员
+  - `400`：`message` 为空
+  - `503`：Kafka 模块关闭或 template 不可用
+  - `500`：发送失败
 
 ### 12.2 `GET /api/kafka/listen`
 
 - 认证：是
 - 权限：`admin`
-- Query 参数：
-  - `topic`: 可选
-  - `key`: 可选，默认 `message`
-  - `message`: 必填
-- 成功响应：`MkApiResponse<String>`
+- Query：
+  - `topic` 可选
+  - `key` 可选，默认 `message`
+  - `message` 必填
+- 成功：`MkApiResponse<String>`
+- 业务错误码：
+  - `403`：非管理员
+  - `400`：`message` 为空
+  - `503`：Kafka 模块关闭或 template 不可用
+  - `500`：转发失败
 
-注意：
-
-- 这个接口当前只是把消息再次发到 Kafka，用于调试，不是“真正的服务端订阅接口”
+注意：这个接口当前只是再次把消息发到 Kafka，用于调试，不是正式消费订阅接口。
 
 ### 12.3 `GET /api/kafka/status`
 
 - 认证：是
 - 权限：`admin`
-- 成功响应：`MkApiResponse<Map<String, Object>>`
+- 成功：`MkApiResponse<Map<String, Object>>`
+- 业务错误码：
+  - `403`：非管理员
 
 ### 12.4 `GET /api/kafka/messages`
 
 - 认证：是
 - 权限：`admin`
-- Query 参数：
-  - `limit`: 可选，默认 `20`，范围 `1-100`
-- 成功响应：`MkApiResponse<KafkaMessageRecord[]>`
+- Query：
+  - `limit` 可选，默认 `20`，范围 `1-100`
+- 成功：`MkApiResponse<KafkaMessageRecord[]>`
+- 业务错误码：
+  - `403`：非管理员
+  - `400`：`limit` 不在 `1-100`
 
-## 13. 支付模块
+## 13. 支付模块 `/api/payments`
+
+说明：
+
+- 本模块使用 `MkApiResponse<T>`
+- token 校验失败时，先返回真实 HTTP `401` 文本 `Unauthorized`
+- 进入 controller 后的错误，多数仍然是 HTTP `200` + 业务 `code`
+- 当前支付模块是扩展骨架，大多数写接口还未真正实现
 
 ### 13.1 `GET /api/payments/status`
 
 - 认证：是
 - 权限：任意已登录用户
-- 成功响应：`MkApiResponse<Map<String, Object>>`
+- 成功：`MkApiResponse<Map<String, Object>>`
+- 错误：
+  - `401`：token 缺失/非法/过期
 
 ### 13.2 `POST /api/payments/intents`
 
 - 认证：是
 - 权限：任意已登录用户
 - Body：`PaymentIntentRequest`
-- 成功响应：`MkApiResponse<MkPaymentIntentDTO>`
-
-当前行为：
-
-- 模块关闭时返回 `503`
-- 模块开启但未实现时返回 `501`
+- 成功：`MkApiResponse<MkPaymentIntentDTO>`
+- 业务错误码：
+  - `400`：请求体为空、`amount` 为空或小于等于 0、币种为空且默认币种也为空
+  - `503`：支付模块未启用
+  - `501`：支付模块已启用但功能未实现
 
 ### 13.3 `POST /api/payments/intents/{paymentIntentId}/confirm`
 
 - 认证：是
 - 权限：任意已登录用户
-- Path 参数：
-  - `paymentIntentId`: 支付意图 ID
-- 成功响应：`MkApiResponse<MkPaymentIntentDTO>`
+- Path：`paymentIntentId`
+- 成功：`MkApiResponse<MkPaymentIntentDTO>`
+- 业务错误码：
+  - `400`：`paymentIntentId` 为空
+  - `503`：支付模块未启用
+  - `501`：功能未实现
 
 ### 13.4 `POST /api/payments/intents/{paymentIntentId}/cancel`
 
 - 认证：是
 - 权限：任意已登录用户
-- Path 参数：
-  - `paymentIntentId`: 支付意图 ID
-- 成功响应：`MkApiResponse<MkPaymentIntentDTO>`
+- Path：`paymentIntentId`
+- 成功：`MkApiResponse<MkPaymentIntentDTO>`
+- 业务错误码：
+  - `400`：`paymentIntentId` 为空
+  - `503`：支付模块未启用
+  - `501`：功能未实现
 
 ### 13.5 `POST /api/payments/checkout-sessions`
 
 - 认证：是
 - 权限：任意已登录用户
 - Body：`MkCheckoutSession`
-- 成功响应：`MkApiResponse<MkPaymentIntentDTO>`
+- 成功：`MkApiResponse<MkPaymentIntentDTO>`
+- 业务错误码：
+  - `400`：请求体为空、`mode` 为空、`success_url` 为空、`cancel_url` 为空、`line_items` 为空
+  - `503`：支付模块未启用
+  - `501`：功能未实现
 
-当前行为：
+## 14. 前端联调重点说明
 
-- 参数合法时，如果支付模块未启用，返回 `503`
-- 启用后当前仍返回 `501`，表示骨架已接入、能力未实现
+### 14.1 先处理 401 纯文本分支
 
-## 14. 前端联调注意事项
+所有受保护接口都可能在进入 controller 之前被拦截成：
 
-### 14.1 记录类型统一
+- HTTP `401`
+- 文本 `Unauthorized`
 
-- 当前控制器与测试都按 `income` / `expense` 处理
-- 前端请统一使用这两个值，不要混用中文“收入/支出”
+前端不要假定失败一定是 JSON。
 
-### 14.2 SSE 事件数据要兼容两种 `message` payload
+### 14.2 `MkApiResponse` 模块不能只看 HTTP 状态码
 
-`SseEmitterServiceImpl` 当前存在实现差异：
+认证、Kafka、支付这三类接口，controller 内部很多错误都还是 HTTP `200`，只是 body 里的 `code != 200`。
+
+前端判断逻辑建议：
+
+1. 先看是不是 HTTP `401` 文本 `Unauthorized`
+2. 如果是 `MkApiResponse` 模块，再看 `body.code`
+3. 如果是普通 JSON 模块，再看 HTTP 状态码和 `ApiErrorResponse`
+
+### 14.3 SSE 接口的 header 限制
+
+`GET /api/notifications/subscribe/{userId}` 需要 JWT，但浏览器原生 `EventSource` 不方便带自定义 `Authorization` 头，联调时极易直接收到 `401`。
+
+### 14.4 SSE `message` 事件 payload 需要兼容两种格式
+
+当前 `SseEmitterServiceImpl` 存在实现差异：
 
 - 单发通知 `sendMessage()` 推送的是 JSON 字符串
 - 广播通知 `sendMessageToAll()` 推送的是对象
 
-前端监听 `message` 事件时，建议兼容：
+前端监听 `message` 事件时建议：
 
-- `typeof data === 'string'` 时先尝试 `JSON.parse`
-- 否则按对象直接处理
+- 如果 `data` 是字符串，先尝试 `JSON.parse`
+- 如果已经是对象，直接使用
 
-### 14.3 Excel 下载错误处理
+### 14.5 Excel 下载错误处理
 
-Excel 成功时返回二进制文件，失败时返回 JSON。前端下载逻辑要兼容这两种情况。
+Excel 成功时返回二进制文件，失败时可能是 JSON 错误体，前端下载逻辑要兼容这两种情况。
 
-### 14.4 搜索功能依赖 Elasticsearch 开关
+### 14.6 当前后端已知风险
 
-- `app.elasticsearch.enabled=false` 时，搜索和索引统计接口会返回 `503`
-- 前端应根据错误提示展示“搜索未启用”或“服务暂不可用”
-
-### 14.5 支付与 Kafka 目前属于扩展骨架
-
-- 支付接口已经固定，但大多数操作目前是 `501/503`
-- Kafka 是管理调试接口，不建议作为正式用户功能入口
-
-### 14.6 当前已知后端问题
-
-以下问题是当前代码层面的已知风险，前端联调时请预期可能出现异常表现：
+以下问题已经在代码 review 中确认，前端联调时请重点关注：
 
 - 新建记录后，搜索索引可能不会立刻包含该条记录
 - 汇总接口的收入/支出统计存在实现风险，联调时请重点核对数值
 - 分类修改 `type` 后，旧记录与分类类型可能出现不一致
 
-## 15. 推荐的前端接入顺序
+## 15. 前端推荐接入顺序
 
 1. 先接 `/api/auth/login` 获取 token
-2. 把 token 注入到所有受保护接口的 `Authorization` 头
-3. 再接用户信息、分类列表、记录列表
-4. 然后接 Excel、SSE、搜索等增强功能
-5. Kafka、支付、集成状态建议作为后台管理或开发调试页面使用
+2. 统一封装 `Authorization` 注入和 `401 Unauthorized` 文本处理
+3. 再接用户、分类、记录、汇总
+4. 然后接 Excel、通知、SSE、搜索
+5. Kafka、支付、集成状态建议作为管理端或调试页面使用
