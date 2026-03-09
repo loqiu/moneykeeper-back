@@ -81,6 +81,7 @@ Authorization: Bearer <token>
 - `code` 是业务码
 - controller 内部失败时，HTTP 通常仍然是 `200`
 - 前端要优先看 `code`，不能只看 HTTP 状态码
+- 如果请求在进入 controller 前就失败，例如 JSON 格式错误、缺少必填 query 参数、参数类型不匹配，HTTP 会直接返回 `400 ApiErrorResponse`，不是 `MkApiResponse`
 
 常见业务码：
 
@@ -121,6 +122,12 @@ Authorization: Bearer <token>
   "timestamp": "2026-03-09T01:00:00"
 }
 ```
+
+常见触发场景：
+
+- JSON 语法错误，返回 `message = "Malformed JSON request"`
+- 必填 `@RequestParam` 缺失
+- 参数类型不匹配，例如把数字参数传成字符串
 
 ### 1.6 日期与枚举
 
@@ -164,6 +171,15 @@ Authorization: Bearer <token>
 }
 ```
 
+字段约束：
+
+- `username`：必填，去首尾空格后长度 `3-50`
+- `password`：必填，长度 `6-255`
+- `email`：必填，合法邮箱格式
+- `firstName`：必填，去首尾空格后长度 `1-50`
+- `lastName`：必填，去首尾空格后长度 `1-50`
+- `phoneNumber`：可选；如果传，必须是 `10-11` 位数字
+
 ### 2.4 GoogleAuthRequest
 
 ```json
@@ -186,6 +202,16 @@ Authorization: Bearer <token>
 }
 ```
 
+字段约束：
+
+- `username`：必填，去首尾空格后长度 `3-50`
+- `password`：必填，长度 `6-255`
+- `email`：可选；如果传，不能为空白且必须是合法邮箱格式
+- `firstName`：可选
+- `lastName`：可选
+- `phoneNumber`：可选；如果传，不能为空白且必须是 `10-11` 位数字
+- `role`：可选；如果传，只能是 `user` 或 `admin`
+
 ### 2.6 UserUpdateRequest
 
 ```json
@@ -195,6 +221,15 @@ Authorization: Bearer <token>
   "phoneNumber": "13800138001"
 }
 ```
+
+字段约束：
+
+- 所有字段都可选
+- `username`：如果传，不能为空白，去首尾空格后长度 `3-50`
+- `password`：如果传，不能为空白，长度 `6-255`
+- `email`：如果传，不能为空白且必须是合法邮箱格式
+- `phoneNumber`：如果传，不能为空白且必须是 `10-11` 位数字
+- `role`：如果传，只能是 `user` 或 `admin`；且只有管理员可以修改
 
 ### 2.7 User
 
@@ -229,6 +264,11 @@ Authorization: Bearer <token>
 }
 ```
 
+字段约束：
+
+- 新建时：`name`、`icon`、`color`、`type` 都必填，且不能为空白
+- 更新时：至少传一个字段；传入的字段不能为空白
+
 ### 2.9 Category
 
 ```json
@@ -246,6 +286,8 @@ Authorization: Bearer <token>
 }
 ```
 
+注意：当前 `POST /api/categories/{id}` 成功后，响应体里的 `id` 不保证已经回填。前端如果创建后立刻依赖新 `id`，建议重新拉一次分类列表或详情。
+
 ### 2.10 MoneyKeeperCreateRequest
 
 普通用户传 `userId` 会被忽略，后端使用当前登录用户；管理员可以代其他用户创建。
@@ -261,6 +303,15 @@ Authorization: Bearer <token>
 }
 ```
 
+字段约束：
+
+- `userId`：可选；普通用户传了也会被忽略，管理员可代其他用户创建
+- `categoryId`：必填
+- `type`：必填，不能为空白，且必须和所选分类 `type` 一致
+- `amount`：必填，必须大于 `0`
+- `transactionDate`：必填，格式 `yyyy-MM-dd`
+- `notes`：可选；如果传空白字符串，后端会按 `null` 处理
+
 ### 2.11 MoneyKeeperUpdateRequest
 
 ```json
@@ -270,6 +321,15 @@ Authorization: Bearer <token>
   "notes": "Dinner"
 }
 ```
+
+字段约束：
+
+- 所有字段都可选
+- 但至少要传一个可更新字段
+- `type`：如果传，不能为空白，且最终生效值必须和目标分类 `type` 一致
+- `amount`：如果传，必须大于 `0`
+- `transactionDate`：如果传，格式 `yyyy-MM-dd`
+- `notes`：如果传空白字符串，后端会按 `null` 处理
 
 ### 2.12 MoneyKeeper
 
@@ -466,6 +526,8 @@ Authorization: Bearer <token>
   - `404`：用户不存在
   - `401`：密码错误
   - `500`：登录失败
+- 进入 controller 前的错误：
+  - HTTP `400` + `ApiErrorResponse`：请求体不是合法 JSON
 
 ### 3.2 `POST /api/auth/logout`
 
@@ -484,6 +546,8 @@ Authorization: Bearer <token>
   - `400`：字段为空、长度非法、邮箱格式非法、手机号格式非法
   - `409`：用户名已存在或邮箱已存在
   - `500`：注册失败
+- 进入 controller 前的错误：
+  - HTTP `400` + `ApiErrorResponse`：请求体不是合法 JSON
 
 ### 3.4 `POST /api/auth/google`
 
@@ -494,6 +558,8 @@ Authorization: Bearer <token>
   - `400`：`idToken` 为空
   - `401`：Google 登录失败或 token 非法
   - `500`：服务内部异常
+- 进入 controller 前的错误：
+  - HTTP `400` + `ApiErrorResponse`：请求体不是合法 JSON
 
 ## 4. 用户模块 `/api/users`
 
@@ -584,6 +650,8 @@ Authorization: Bearer <token>
   - `400`：请求体为空、`name/icon/color/type` 缺失或为空白
 
 注意：这里的 `{id}` 是用户 ID，不是分类 ID。
+
+联调注意：当前成功响应里的分类对象不保证已经带回数据库生成的 `id`。
 
 ### 5.2 `GET /api/categories/{id}`
 
@@ -697,6 +765,8 @@ Authorization: Bearer <token>
   - `404`：分类不存在
 
 注意：普通用户传 `userId` 会被忽略，后端使用当前登录用户；管理员可代其他用户创建。
+
+联调注意：当前成功响应里的记录对象不保证已经带回数据库生成的 `id`。
 
 ### 6.2 `GET /api/records/{id}`
 
@@ -848,6 +918,10 @@ Authorization: Bearer <token>
   - `startDate` 可选
   - `endDate` 可选
   - `limit` 可选，默认 `20`，范围 `1-100`
+- 字段约束：
+  - 普通用户不应传其他用户的 `userId`
+  - `limit` 超出 `1-100` 会被拒绝
+  - `startDate/endDate` 如同时传入，`endDate` 不能早于 `startDate`
 - 成功：`RecordSearchResultDTO[]`
 - 错误：
   - `401`：token 缺失/非法/过期
@@ -1118,6 +1192,8 @@ Authorization: Bearer <token>
   - `400`：`message` 为空
   - `503`：Kafka 模块关闭或 template 不可用
   - `500`：发送失败
+- 进入 controller 前的错误：
+  - HTTP `400` + `ApiErrorResponse`：缺少必填 `message` query 参数
 
 ### 12.2 `GET /api/kafka/listen`
 
@@ -1133,6 +1209,8 @@ Authorization: Bearer <token>
   - `400`：`message` 为空
   - `503`：Kafka 模块关闭或 template 不可用
   - `500`：转发失败
+- 进入 controller 前的错误：
+  - HTTP `400` + `ApiErrorResponse`：缺少必填 `message` query 参数
 
 注意：这个接口当前只是再次把消息发到 Kafka，用于调试，不是正式消费订阅接口。
 
@@ -1154,6 +1232,8 @@ Authorization: Bearer <token>
 - 业务错误码：
   - `403`：非管理员
   - `400`：`limit` 不在 `1-100`
+- 进入 controller 前的错误：
+  - HTTP `400` + `ApiErrorResponse`：`limit` 不是合法整数
 
 ## 13. 支付模块 `/api/payments`
 
@@ -1182,6 +1262,8 @@ Authorization: Bearer <token>
   - `400`：请求体为空、`amount` 为空或小于等于 0、币种为空且默认币种也为空
   - `503`：支付模块未启用
   - `501`：支付模块已启用但功能未实现
+- 进入 controller 前的错误：
+  - HTTP `400` + `ApiErrorResponse`：请求体不是合法 JSON
 
 ### 13.3 `POST /api/payments/intents/{paymentIntentId}/confirm`
 
@@ -1215,6 +1297,8 @@ Authorization: Bearer <token>
   - `400`：请求体为空、`mode` 为空、`success_url` 为空、`cancel_url` 为空、`line_items` 为空
   - `503`：支付模块未启用
   - `501`：功能未实现
+- 进入 controller 前的错误：
+  - HTTP `400` + `ApiErrorResponse`：请求体不是合法 JSON
 
 ## 14. 前端联调重点说明
 
@@ -1229,13 +1313,14 @@ Authorization: Bearer <token>
 
 ### 14.2 `MkApiResponse` 模块不能只看 HTTP 状态码
 
-认证、Kafka、支付这三类接口，controller 内部很多错误都还是 HTTP `200`，只是 body 里的 `code != 200`。
+认证、Kafka、支付这三类接口，controller 内部很多错误都还是 HTTP `200`，只是 body 里的 `code != 200`。但这三类接口也可能在进入 controller 前，先返回 HTTP `400` 的 `ApiErrorResponse`。
 
 前端判断逻辑建议：
 
 1. 先看是不是 HTTP `401` 文本 `Unauthorized`
-2. 如果是 `MkApiResponse` 模块，再看 `body.code`
-3. 如果是普通 JSON 模块，再看 HTTP 状态码和 `ApiErrorResponse`
+2. 如果 body 是 `ApiErrorResponse` 结构，按 HTTP 状态码和 `message` 处理
+3. 如果 body 是 `MkApiResponse` 结构，再看 `body.code`
+4. 普通 JSON 模块按 HTTP 状态码和 `ApiErrorResponse` 处理
 
 ### 14.3 SSE 接口的 header 限制
 
@@ -1261,6 +1346,7 @@ Excel 成功时返回二进制文件，失败时可能是 JSON 错误体，前�
 
 以下问题已经在代码 review 中确认，前端联调时请重点关注：
 
+- 新建分类或新建记录成功后，响应体里的 `id` 可能还没有回填
 - 新建记录后，搜索索引可能不会立刻包含该条记录
 - 汇总接口的收入/支出统计存在实现风险，联调时请重点核对数值
 - 分类修改 `type` 后，旧记录与分类类型可能出现不一致
