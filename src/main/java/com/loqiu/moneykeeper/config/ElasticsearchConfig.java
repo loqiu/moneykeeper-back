@@ -10,13 +10,14 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.client.RestClient;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @EnableConfigurationProperties(ElasticsearchProperties.class)
+@ConditionalOnProperty(prefix = "app.elasticsearch", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class ElasticsearchConfig {
 
     @Autowired
@@ -24,36 +25,28 @@ public class ElasticsearchConfig {
 
     @Bean
     public ElasticsearchClient elasticsearchClient() {
-        // 创建凭证提供器
-        BasicCredentialsProvider credsProv = new BasicCredentialsProvider();
-        credsProv.setCredentials(
-            AuthScope.ANY,
-            new UsernamePasswordCredentials(
-                elasticsearchProperties.getUsername(),
-                elasticsearchProperties.getPassword()
-            )
+        BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
+        credsProvider.setCredentials(
+                AuthScope.ANY,
+                new UsernamePasswordCredentials(
+                        elasticsearchProperties.getUsername(),
+                        elasticsearchProperties.getPassword()
+                )
         );
 
-        // 创建低级客户端
         RestClient restClient = RestClient.builder(
-            new HttpHost(
-                elasticsearchProperties.getHost(),
-                elasticsearchProperties.getPort(),
-                "http"
-            )
-        )
-        .setHttpClientConfigCallback(httpAsyncClientBuilder -> 
-            httpAsyncClientBuilder.setDefaultCredentialsProvider(credsProv)
-        )
-        .build();
+                        new HttpHost(
+                                elasticsearchProperties.getHost(),
+                                elasticsearchProperties.getPort(),
+                                "http"
+                        )
+                )
+                .setHttpClientConfigCallback(httpAsyncClientBuilder ->
+                        httpAsyncClientBuilder.setDefaultCredentialsProvider(credsProvider)
+                )
+                .build();
 
-        // 创建传输层
-        ElasticsearchTransport transport = new RestClientTransport(
-            restClient, 
-            new JacksonJsonpMapper()
-        );
-
-        // 创建API客户端
+        ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
         return new ElasticsearchClient(transport);
     }
-} 
+}

@@ -1,5 +1,8 @@
 package com.loqiu.moneykeeper.enums;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 public enum MessageType {
     SUCCESS("success"),
     WARNING("warning"),
@@ -14,16 +17,21 @@ public enum MessageType {
         this.type = type;
     }
 
+    @JsonValue
     public String getType() {
         return type;
     }
 
+    @JsonCreator
     public static MessageType fromString(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
         for (MessageType type : MessageType.values()) {
             if (type.type.equalsIgnoreCase(text)) {
                 return type;
             }
         }
-        throw new IllegalArgumentException("No constant with text " + text + " found");
+        throw new IllegalArgumentException("Unsupported message type: " + text);
     }
-} 
+}

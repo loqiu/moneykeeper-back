@@ -17,45 +17,47 @@ public class JwtUtil {
 
     @Value("${JWT.SECERT}")
     private String secret;
-    
+
     private static final long EXPIRATION_TIME = 24 * 60 * 60 * 1000;
 
-    // 生成token
-    public String generateToken(String userPin, String username) {
+    public String generateToken(Long userId, String userPin, String username, String role) {
+        String resolvedRole = role == null || role.isBlank() ? "user" : role;
         String token = JWT.create()
-                .withSubject(String.valueOf(userPin))
+                .withSubject(userPin)
+                .withClaim("userId", userId)
                 .withClaim("username", username)
+                .withClaim("role", resolvedRole)
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
                 .sign(Algorithm.HMAC256(secret));
-        
-        // 保存到Redis
-        redisTokenUtil.saveToken(String.valueOf(userPin), token);
+
+        redisTokenUtil.saveToken(userPin, token);
         return token;
     }
 
-    // 验证token时同时检查Redis
     public DecodedJWT verifyToken(String token) throws JWTVerificationException {
         DecodedJWT jwt = JWT.require(Algorithm.HMAC256(secret))
                 .build()
                 .verify(token);
-        
-        // 验证Redis中的token
+
         String userPin = jwt.getSubject();
         if (!redisTokenUtil.validateToken(userPin, token)) {
-            throw new JWTVerificationException("Token不存在或已失效");
+            throw new JWTVerificationException("Token is invalid or expired");
         }
-        
+
         return jwt;
     }
 
-    // get userPin from token
-    public String getUserIdFromToken(String token) {
+    public String getUserPinFromToken(String token) {
         DecodedJWT jwt = verifyToken(token);
         return jwt.getSubject();
     }
 
-    // 使token失效
+    // Legacy name kept to avoid widespread call-site changes.
+    public String getUserIdFromToken(String token) {
+        return getUserPinFromToken(token);
+    }
+
     public void invalidateToken(String userPin) {
         redisTokenUtil.deleteToken(userPin);
     }

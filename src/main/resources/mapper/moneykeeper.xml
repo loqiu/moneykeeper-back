@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.loqiu.moneykeeper.mapper.MoneyKeeperMapper">
-    
-    <!-- 定义结果映射 -->
+
     <resultMap id="MoneyKeeperResultMap" type="com.loqiu.moneykeeper.dto.MoneyKeeperDTO">
         <id column="id" property="id"/>
         <result column="user_id" property="userId"/>
@@ -15,41 +14,7 @@
         <result column="notes" property="notes"/>
     </resultMap>
 
-    <!-- 查询所有未删除的记录 -->
-    <select id="getAllRecordsWithCategoryName" resultMap="MoneyKeeperResultMap">
-        select
-            mk.id as id,
-            mk.user_id as user_id,
-            mk.category_id as category_id,
-            mk.transaction_date as transaction_date,
-            mk.updated_at as updated_at,
-            c.name as category_name,
-            mk.type as type,
-            mk.amount as amount,
-            mk.notes as notes
-        from
-            moneykeeper as mk
-        inner join
-            categories as c
-        on mk.category_id = c.id
-        where
-            mk.deleted_at = 0 and c.deleted_at = 0
-        <if test="userId != null">
-            AND mk.user_id = #{userId}
-        </if>
-        <if test="startDate != null">
-            AND mk.transaction_date >= #{startDate}
-        </if>
-        <if test="endDate != null">
-            AND mk.transaction_date &lt;= #{endDate}
-        </if>
-        order by
-            mk.updated_at desc
-    </select>
-
-    <!-- 查询所有未删除的记录 -->
-    <select id="getAllRecordsByCategoryName" resultMap="MoneyKeeperResultMap">
-        select
+    <sql id="MoneyKeeperWithCategoryColumns">
         mk.id as id,
         mk.user_id as user_id,
         mk.category_id as category_id,
@@ -59,34 +24,71 @@
         mk.type as type,
         mk.amount as amount,
         mk.notes as notes
-        from
-        moneykeeper as mk
-        inner join
-        categories as c
-        on mk.category_id = c.id
-        where
-        mk.deleted_at = 0 and c.deleted_at = 0
+    </sql>
+
+    <select id="getAllRecordsWithCategoryName" resultMap="MoneyKeeperResultMap">
+        select
+            <include refid="MoneyKeeperWithCategoryColumns"/>
+        from moneykeeper as mk
+        left join categories as c on mk.category_id = c.id
+        where mk.deleted_at = 0
         <if test="userId != null">
-            AND mk.user_id = #{userId}
-        </if>
-        <if test="categoryName != null">
-            AND c.name = #{categoryName}
+            and mk.user_id = #{userId}
         </if>
         <if test="startDate != null">
-            AND transaction_date >= #{startDate}
+            and mk.transaction_date >= #{startDate}
         </if>
         <if test="endDate != null">
-            AND transaction_date &lt;= #{endDate}
+            and mk.transaction_date &lt;= #{endDate}
         </if>
-        order by
-        mk.updated_at desc
+        order by mk.updated_at desc
+    </select>
+
+    <select id="getAllRecordsByCategoryName" resultMap="MoneyKeeperResultMap">
+        select
+            <include refid="MoneyKeeperWithCategoryColumns"/>
+        from moneykeeper as mk
+        left join categories as c on mk.category_id = c.id
+        where mk.deleted_at = 0
+        <if test="userId != null">
+            and mk.user_id = #{userId}
+        </if>
+        <if test="categoryName != null">
+            and c.name = #{categoryName}
+        </if>
+        <if test="startDate != null">
+            and mk.transaction_date >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            and mk.transaction_date &lt;= #{endDate}
+        </if>
+        order by mk.updated_at desc
+    </select>
+
+    <select id="getRecordWithCategoryName" resultMap="MoneyKeeperResultMap">
+        select
+            <include refid="MoneyKeeperWithCategoryColumns"/>
+        from moneykeeper as mk
+        left join categories as c on mk.category_id = c.id
+        where mk.id = #{recordId}
+          and mk.deleted_at = 0
+    </select>
+
+    <select id="getRecordsWithCategoryNameByCategoryId" resultMap="MoneyKeeperResultMap">
+        select
+            <include refid="MoneyKeeperWithCategoryColumns"/>
+        from moneykeeper as mk
+        left join categories as c on mk.category_id = c.id
+        where mk.deleted_at = 0
+          and mk.category_id = #{categoryId}
+        order by mk.updated_at desc
     </select>
 
     <select id="getMoneyKeeperSummary" resultType="java.util.Map">
         SELECT
-            COALESCE(SUM(CASE WHEN type = '收入' THEN amount ELSE 0 END), 0) as totalIncome,
-            COALESCE(SUM(CASE WHEN type = '支出' THEN amount ELSE 0 END), 0) as totalExpense,
-            COALESCE(SUM(CASE WHEN type = '收入' THEN amount ELSE -amount END), 0) as balance
+            COALESCE(SUM(CASE WHEN type = '閺€璺哄弳' THEN amount ELSE 0 END), 0) as totalIncome,
+            COALESCE(SUM(CASE WHEN type = '閺€顖氬毉' THEN amount ELSE 0 END), 0) as totalExpense,
+            COALESCE(SUM(CASE WHEN type = '閺€璺哄弳' THEN amount ELSE -amount END), 0) as balance
         FROM moneykeeper mk
         WHERE user_id = #{userId} and mk.deleted_at = 0
         <if test="startDate != null">

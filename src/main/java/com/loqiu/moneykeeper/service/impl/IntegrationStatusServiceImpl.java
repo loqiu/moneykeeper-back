@@ -1,0 +1,169 @@
+package com.loqiu.moneykeeper.service.impl;
+
+import com.loqiu.moneykeeper.config.ElasticsearchProperties;
+import com.loqiu.moneykeeper.config.PaymentProperties;
+import com.loqiu.moneykeeper.dto.IntegrationModuleStatusDTO;
+import com.loqiu.moneykeeper.service.IntegrationStatusService;
+import com.loqiu.moneykeeper.service.KafkaConsumerService;
+import com.loqiu.moneykeeper.service.KafkaProducerService;
+import com.loqiu.moneykeeper.service.PaymentStripeService;
+import com.loqiu.moneykeeper.service.RecordSearchService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Service;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class IntegrationStatusServiceImpl implements IntegrationStatusService {
+
+    @Autowired
+    private Environment environment;
+
+    @Autowired
+    private ApplicationContext applicationContext;
+
+    @Autowired
+    private KafkaProducerService kafkaProducerService;
+
+    @Autowired
+    private KafkaConsumerService kafkaConsumerService;
+
+    @Autowired
+    private PaymentStripeService paymentStripeService;
+
+    @Autowired
+    private PaymentProperties paymentProperties;
+
+    @Autowired
+    private ElasticsearchProperties elasticsearchProperties;
+
+    @Autowired
+    private RecordSearchService recordSearchService;
+
+    @Override
+    public List<IntegrationModuleStatusDTO> getAllStatuses() {
+        Map<String, IntegrationModuleStatusDTO> statuses = buildStatuses();
+        return List.copyOf(statuses.values());
+    }
+
+    @Override
+    public IntegrationModuleStatusDTO getStatus(String moduleName) {
+        if (moduleName == null) {
+            return null;
+        }
+        return buildStatuses().get(moduleName.trim().toLowerCase());
+    }
+
+    private Map<String, IntegrationModuleStatusDTO> buildStatuses() {
+        Map<String, IntegrationModuleStatusDTO> statuses = new LinkedHashMap<>();
+        statuses.put("kafka", buildKafkaStatus());
+        statuses.put("elasticsearch", buildElasticsearchStatus());
+        statuses.put("payment", buildPaymentStatus());
+        statuses.put("dubbo", buildDubboStatus());
+        statuses.put("nacos-discovery", buildNacosDiscoveryStatus());
+        statuses.put("nacos-config", buildNacosConfigStatus());
+        return statuses;
+    }
+
+    private IntegrationModuleStatusDTO buildKafkaStatus() {
+        boolean enabled = environment.getProperty("app.kafka.enabled", Boolean.class, false);
+        return IntegrationModuleStatusDTO.builder()
+                .module("kafka")
+                .enabled(enabled)
+                .ready(kafkaProducerService.isEnabled())
+                .implemented(true)
+                .summary(enabled ? "Kafka producer and consumer scaffolding is enabled" : "Kafka module is disabled via app.kafka.enabled")
+                .metadata(Map.of(
+                        "producerReady", kafkaProducerService.isEnabled(),
+                        "consumerReady", kafkaConsumerService.isEnabled(),
+                        "consumedCount", kafkaConsumerService.getConsumedCount()
+                ))
+                .build();
+    }
+
+    private IntegrationModuleStatusDTO buildElasticsearchStatus() {
+        boolean enabled = recordSearchService.isEnabled();
+        boolean ready = recordSearchService.isReady();
+        return IntegrationModuleStatusDTO.builder()
+                .module("elasticsearch")
+                .enabled(enabled)
+                .ready(ready)
+                .implemented(true)
+                .summary(enabled
+                        ? (ready ? "Elasticsearch record search APIs are enabled" : "Elasticsearch feature is enabled but the client is not ready")
+                        : "Elasticsearch module is disabled via app.elasticsearch.enabled")
+                .metadata(Map.of(
+                        "searchApiAvailable", true,
+                        "indexName", elasticsearchProperties.getIndexName(),
+                        "host", elasticsearchProperties.getHost(),
+                        "port", elasticsearchProperties.getPort()
+                ))
+                .build();
+    }
+
+    private IntegrationModuleStatusDTO buildPaymentStatus() {
+        boolean enabled = paymentProperties.isEnabled();
+        boolean ready = applicationContext.getBeanNamesForType(PaymentStripeService.class).length > 0;
+        return IntegrationModuleStatusDTO.builder()
+                .module("payment")
+                .enabled(enabled)
+                .ready(ready)
+                .implemented(false)
+                .summary(enabled ? paymentProperties.getProvider() + " payment module is enabled with placeholder service" : "Payment module is disabled via app.payment.enabled")
+                .metadata(Map.of(
+                        "provider", paymentProperties.getProvider(),
+                        "defaultCurrency", paymentProperties.getDefaultCurrency(),
+                        "serviceBeanPresent", ready
+                ))
+                .build();
+    }
+
+    private IntegrationModuleStatusDTO buildDubboStatus() {
+        boolean enabled = environment.getProperty("app.dubbo.enabled", Boolean.class, false);
+        boolean ready = applicationContext.getBeanNamesForType(com.loqiu.moneykeeper.config.DubboFeatureConfig.class).length > 0;
+        return IntegrationModuleStatusDTO.builder()
+                .module("dubbo")
+                .enabled(enabled)
+                .ready(ready)
+                .implemented(false)
+                .summary(enabled ? "Dubbo infrastructure is enabled; RPC service contracts are not implemented yet" : "Dubbo module is disabled via app.dubbo.enabled")
+                .metadata(Map.of(
+                        "applicationName", environment.getProperty("dubbo.application.name", "moneykeeper-back"),
+                        "registryAddress", environment.getProperty("dubbo.registry.address", "n/a")
+                ))
+                .build();
+    }
+
+    private IntegrationModuleStatusDTO buildNacosDiscoveryStatus() {
+        boolean enabled = environment.getProperty("spring.cloud.nacos.discovery.enabled", Boolean.class, false);
+        boolean ready = applicationContext.getBeanNamesForType(com.loqiu.moneykeeper.config.NacosDiscoveryFeatureConfig.class).length > 0;
+        return IntegrationModuleStatusDTO.builder()
+                .module("nacos-discovery")
+                .enabled(enabled)
+                .ready(ready)
+                .implemented(false)
+                .summary(enabled ? "Nacos discovery integration is enabled" : "Nacos discovery is disabled")
+                .metadata(Map.of(
+                        "serverAddr", environment.getProperty("spring.cloud.nacos.discovery.server-addr", "n/a")
+                ))
+                .build();
+    }
+
+    private IntegrationModuleStatusDTO buildNacosConfigStatus() {
+        boolean enabled = environment.getProperty("spring.cloud.nacos.config.enabled", Boolean.class, false);
+        return IntegrationModuleStatusDTO.builder()
+                .module("nacos-config")
+                .enabled(enabled)
+                .ready(enabled)
+                .implemented(false)
+                .summary(enabled ? "Nacos config integration is enabled" : "Nacos config is disabled")
+                .metadata(Map.of(
+                        "serverAddr", environment.getProperty("spring.cloud.nacos.config.server-addr", "n/a")
+                ))
+                .build();
+    }
+}

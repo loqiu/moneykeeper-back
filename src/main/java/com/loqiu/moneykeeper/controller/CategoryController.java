@@ -1,15 +1,22 @@
 package com.loqiu.moneykeeper.controller;
 
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.loqiu.moneykeeper.entity.Category;
+import com.loqiu.moneykeeper.exception.BadRequestException;
+import com.loqiu.moneykeeper.exception.ForbiddenException;
+import com.loqiu.moneykeeper.exception.ResourceNotFoundException;
+import com.loqiu.moneykeeper.service.CategoryService;
+import com.loqiu.moneykeeper.service.RecordSearchService;
+import com.loqiu.moneykeeper.util.RequestAuthUtil;
+import com.loqiu.moneykeeper.vo.CategoryRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-
-import com.loqiu.moneykeeper.entity.Category;
-import com.loqiu.moneykeeper.service.CategoryService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,226 +29,221 @@ public class CategoryController {
 
     @Autowired
     private CategoryService categoryService;
-    
+
+    @Autowired
+    private RecordSearchService recordSearchService;
+
     @PostMapping("/{id}")
-    public ResponseEntity<Category> createCategory(@PathVariable Long id, @RequestBody Category category) {
-        logger.info("Creating category - Input - userId: {}, category: {}", id, category);
-        
-        if (id == null || category == null) {
-            logger.error("Invalid input - userId: {}, category: {}", id, category);
-            return ResponseEntity.badRequest().build();
-        }
-        
-        try {
-            category.setUserId(id);
-            categoryService.insertCategory(category);
-            logger.info("Category created successfully - Output - category: {}", category);
-            return ResponseEntity.ok(category);
-        } catch (Exception e) {
-            logger.error("Failed to create category - userId: {}, error: {}", id, e.getMessage());
-            return ResponseEntity.internalServerError().build();
-        }
+    public ResponseEntity<Category> createCategory(@PathVariable Long id,
+                                                   @RequestBody CategoryRequest categoryRequest,
+                                                   HttpServletRequest request) {
+        logger.info("Creating category - targetUserId: {}, currentUserId: {}", id, RequestAuthUtil.getCurrentUserId(request));
+        requireSelfOrAdmin(request, id);
+        validateCreateRequest(categoryRequest);
+
+        Category category = new Category();
+        category.setUserId(id);
+        category.setName(categoryRequest.getName().trim());
+        category.setIcon(categoryRequest.getIcon().trim());
+        category.setColor(categoryRequest.getColor().trim());
+        category.setType(categoryRequest.getType().trim());
+
+        categoryService.insertCategory(category);
+        logger.info("Category created successfully - userId: {}, categoryName: {}", id, category.getName());
+        return ResponseEntity.ok(category);
     }
-    
+
     @GetMapping("/{id}")
-    public ResponseEntity<Category> getCategoryById(@PathVariable Long id) {
-        logger.info("Getting category - Input - categoryId: {}", id);
-        
-        if (id == null) {
-            logger.error("Invalid input - categoryId is null");
-            return ResponseEntity.badRequest().build();
-        }
-        
-        try {
-            Category category = categoryService.getById(id);
-            if (category != null) {
-                logger.info("Category found - Output - category: {}", category);
-                return ResponseEntity.ok(category);
-            } else {
-                logger.warn("Category not found - categoryId: {}", id);
-                return ResponseEntity.notFound().build();
-            }
-        } catch (Exception e) {
-            logger.error("Failed to get category - categoryId: {}, error: {}", id, e.getMessage());
-            return ResponseEntity.internalServerError().build();
-        }
+    public ResponseEntity<Category> getCategoryById(@PathVariable Long id, HttpServletRequest request) {
+        logger.info("Getting category - categoryId: {}, currentUserId: {}", id, RequestAuthUtil.getCurrentUserId(request));
+        Category category = requireCategory(id);
+        requireSelfOrAdmin(request, category.getUserId());
+        return ResponseEntity.ok(category);
     }
-    
+
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Category>> getCategoriesByUserId(@PathVariable Long userId) {
-        logger.info("Getting categories by userId - Input - userId: {}", userId);
-        
-        if (userId == null) {
-            logger.error("Invalid input - userId is null");
-            return ResponseEntity.badRequest().build();
-        }
-        
-        try {
-            List<Category> categories = categoryService.findByUserId(userId);
-            logger.info("Categories found - Output - count: {}, categories: {}", 
-                categories.size(), categories);
-            return ResponseEntity.ok(categories);
-        } catch (Exception e) {
-            logger.error("Failed to get categories - userId: {}, error: {}", userId, e.getMessage());
-            return ResponseEntity.internalServerError().build();
-        }
+    public ResponseEntity<List<Category>> getCategoriesByUserId(@PathVariable Long userId, HttpServletRequest request) {
+        logger.info("Getting categories by userId - targetUserId: {}, currentUserId: {}", userId, RequestAuthUtil.getCurrentUserId(request));
+        requireSelfOrAdmin(request, userId);
+        return ResponseEntity.ok(categoryService.findByUserId(userId));
     }
 
     @GetMapping("/type/{type}")
-    public ResponseEntity<List<Category>> getCategoriesByType(@PathVariable String type) {
-        logger.info("Getting categories by type - Input - type: {}", type);
-        
-        if (type == null || type.trim().isEmpty()) {
-            logger.error("Invalid input - type is null or empty");
-            return ResponseEntity.badRequest().build();
+    public ResponseEntity<List<Category>> getCategoriesByType(@PathVariable String type, HttpServletRequest request) {
+        logger.info("Getting categories by type - type: {}, currentUserId: {}", type, RequestAuthUtil.getCurrentUserId(request));
+        validateRequiredText(type, "Category type is required");
+
+        QueryWrapper<Category> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("type", type.trim())
+                .orderByDesc("created_at");
+        if (!RequestAuthUtil.isAdmin(request)) {
+            queryWrapper.eq("user_id", RequestAuthUtil.requireCurrentUserId(request));
         }
-        
-        try {
-            List<Category> categories = categoryService.findByType(type);
-            logger.info("Categories found - Output - count: {}, categories: {}", 
-                categories.size(), categories);
-            return ResponseEntity.ok(categories);
-        } catch (Exception e) {
-            logger.error("Failed to get categories - type: {}, error: {}", type, e.getMessage());
-            return ResponseEntity.internalServerError().build();
-        }
+        return ResponseEntity.ok(categoryService.list(queryWrapper));
     }
-    
+
     @PutMapping("/{id}")
-    public ResponseEntity<Category> updateCategory(@PathVariable Long id, @RequestBody Category category) {
-        logger.info("Updating category - Input - categoryId: {}, category: {}", id, category);
-        
-        if (id == null || category == null) {
-            logger.error("Invalid input - categoryId: {}, category: {}", id, category);
-            return ResponseEntity.badRequest().build();
+    public ResponseEntity<Category> updateCategory(@PathVariable Long id,
+                                                   @RequestBody CategoryRequest categoryRequest,
+                                                   HttpServletRequest request) {
+        logger.info("Updating category - categoryId: {}, currentUserId: {}", id, RequestAuthUtil.getCurrentUserId(request));
+        if (categoryRequest == null) {
+            throw new BadRequestException("Request body is required");
         }
-        
-        try {
-            Category existingCategory = categoryService.getById(id);
-            if (existingCategory == null) {
-                logger.warn("Category not found - categoryId: {}", id);
-                return ResponseEntity.notFound().build();
-            }
-            if(null == category.getId()){
-                category.setId(id);
-            }
-            logger.info("Category found - categoryId: {}, existingCategory: {}, updateCategory:{}", id, existingCategory,category);
-            categoryService.updateById(category);
-            logger.info("Category updated successfully - Output - category: {}", category);
-            return ResponseEntity.ok(category);
-        } catch (Exception e) {
-            logger.error("Failed to update category - categoryId: {}, error: {}", id, e.getMessage());
-            return ResponseEntity.internalServerError().build();
-        }
+
+        Category existingCategory = requireCategory(id);
+        requireSelfOrAdmin(request, existingCategory.getUserId());
+        validateUpdateRequest(categoryRequest);
+
+        Category updatedCategory = new Category();
+        updatedCategory.setId(existingCategory.getId());
+        updatedCategory.setUserId(existingCategory.getUserId());
+        updatedCategory.setName(resolveString(categoryRequest.getName(), existingCategory.getName()));
+        updatedCategory.setIcon(resolveString(categoryRequest.getIcon(), existingCategory.getIcon()));
+        updatedCategory.setColor(resolveString(categoryRequest.getColor(), existingCategory.getColor()));
+        updatedCategory.setType(resolveString(categoryRequest.getType(), existingCategory.getType()));
+        updatedCategory.setCreatedAt(existingCategory.getCreatedAt());
+        updatedCategory.setDeletedAt(existingCategory.getDeletedAt());
+        updatedCategory.setDeletedTime(existingCategory.getDeletedTime());
+
+        categoryService.updateById(updatedCategory);
+        recordSearchService.refreshCategoryRecordsIfEnabled(existingCategory.getId());
+        logger.info("Category updated successfully - categoryId: {}", id);
+        return ResponseEntity.ok(requireCategory(id));
     }
-    
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
-        logger.info("Deleting category - Input - categoryId: {}", id);
-        
-        if (id == null) {
-            logger.error("Invalid input - categoryId is null");
-            return ResponseEntity.badRequest().build();
+    public ResponseEntity<Void> deleteCategory(@PathVariable Long id, HttpServletRequest request) {
+        logger.info("Deleting category - categoryId: {}, currentUserId: {}", id, RequestAuthUtil.getCurrentUserId(request));
+        Category deletedCategory = requireCategory(id);
+        requireSelfOrAdmin(request, deletedCategory.getUserId());
+        if (deletedCategory.getDeletedAt() != null && deletedCategory.getDeletedAt() == 1) {
+            throw new ResourceNotFoundException("Category not found");
         }
-        
-        try {
-            Category deletedCategory = categoryService.getById(id);
-            logger.info("Category found - categoryId: {}, deletedCategory: {}", id, deletedCategory);
-            if(deletedCategory != null && deletedCategory.getDeletedAt() == 1){
-                logger.warn("Category have already deleted - categoryId: {}", id);
-                return ResponseEntity.notFound().build();
-            }
-            LocalDateTime currentTime = LocalDateTime.now();
-            UpdateWrapper<Category> updateWrapper = new UpdateWrapper<>();
-            updateWrapper.eq("id", id)
-                    .set("deleted_at", 1)
-                    .set("deleted_time", currentTime);
-            logger.info("Category updateWrapper - categoryId: {}, updateWrapper: {}", id, updateWrapper);
-            categoryService.update(updateWrapper);
-            logger.info("Category deleted successfully - categoryId: {}", id);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            logger.error("Failed to delete category - categoryId: {}, error: {}", id, e.getMessage());
-            return ResponseEntity.internalServerError().build();
-        }
+
+        UpdateWrapper<Category> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("id", id)
+                .set("deleted_at", 1)
+                .set("deleted_time", LocalDateTime.now());
+        categoryService.update(updateWrapper);
+        recordSearchService.refreshCategoryRecordsIfEnabled(deletedCategory.getId());
+        logger.info("Category deleted successfully - categoryId: {}", id);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/list")
-    public ResponseEntity<List<Category>> getAllCategories() {
-        logger.info("Getting all categories");
-        
-        try {
-            List<Category> categories = categoryService.list();
-            logger.info("Categories found - Output - count: {}", categories.size());
-            logger.debug("Categories details: {}", categories);
-            return ResponseEntity.ok(categories);
-        } catch (Exception e) {
-            logger.error("Failed to get categories list - error: {}", e.getMessage());
-            return ResponseEntity.internalServerError().build();
+    public ResponseEntity<List<Category>> getAllCategories(HttpServletRequest request) {
+        logger.info("Getting all categories - currentUserId: {}", RequestAuthUtil.getCurrentUserId(request));
+        QueryWrapper<Category> queryWrapper = new QueryWrapper<>();
+        if (!RequestAuthUtil.isAdmin(request)) {
+            queryWrapper.eq("user_id", RequestAuthUtil.requireCurrentUserId(request));
         }
+        queryWrapper.orderByDesc("created_at");
+        return ResponseEntity.ok(categoryService.list(queryWrapper));
     }
 
     @GetMapping("/user/{userId}/type/{type}")
-    public ResponseEntity<List<Category>> getCategoriesByUserIdAndType(
-            @PathVariable Long userId,
-            @PathVariable String type) {
-        logger.info("Getting categories by userId and type - Input - userId: {}, type: {}", userId, type);
-        
-        if (userId == null || type == null || type.trim().isEmpty()) {
-            logger.error("Invalid input - userId: {}, type: {}", userId, type);
-            return ResponseEntity.badRequest().build();
-        }
-        
-        try {
-            QueryWrapper<Category> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("user_id", userId)
-                       .eq("type", type)
-                       .eq("deleted_at", 0)
-                       .orderByDesc("created_at");
-            
-            List<Category> categories = categoryService.list(queryWrapper);
-            logger.info("Categories found - Output - count: {}", categories.size());
-            logger.debug("Categories details: {}", categories);
-            return ResponseEntity.ok(categories);
-        } catch (Exception e) {
-            logger.error("Failed to get categories - userId: {}, type: {}, error: {}", 
-                userId, type, e.getMessage());
-            return ResponseEntity.internalServerError().build();
-        }
+    public ResponseEntity<List<Category>> getCategoriesByUserIdAndType(@PathVariable Long userId,
+                                                                       @PathVariable String type,
+                                                                       HttpServletRequest request) {
+        logger.info("Getting categories by userId and type - targetUserId: {}, type: {}, currentUserId: {}",
+                userId, type, RequestAuthUtil.getCurrentUserId(request));
+        requireSelfOrAdmin(request, userId);
+        validateRequiredText(type, "Category type is required");
+
+        QueryWrapper<Category> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("user_id", userId)
+                .eq("type", type.trim())
+                .orderByDesc("created_at");
+        return ResponseEntity.ok(categoryService.list(queryWrapper));
     }
 
     @GetMapping("/list/{type}")
-    public ResponseEntity<List<Category>> getCategoriesByType(
-            @PathVariable String type,
-            @RequestParam(required = false) Long userId) {
-        logger.info("Getting categories by type - Input - type: {}, userId: {}", type, userId);
-        
-        if (type == null || type.trim().isEmpty()) {
-            logger.error("Invalid input - type is null or empty");
-            return ResponseEntity.badRequest().build();
-        }
-        
-        try {
-            QueryWrapper<Category> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("type", type)
-                       .eq("deleted_at", 0);
-            
+    public ResponseEntity<List<Category>> getCategoriesByType(@PathVariable String type,
+                                                              @RequestParam(required = false) Long userId,
+                                                              HttpServletRequest request) {
+        logger.info("Getting categories by type with optional user filter - type: {}, targetUserId: {}, currentUserId: {}",
+                type, userId, RequestAuthUtil.getCurrentUserId(request));
+        validateRequiredText(type, "Category type is required");
+
+        QueryWrapper<Category> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("type", type.trim())
+                .orderByDesc("created_at");
+
+        if (RequestAuthUtil.isAdmin(request)) {
             if (userId != null) {
-                queryWrapper.and(wrapper -> wrapper
-                    .eq("user_id", userId));
-                // 系统默认分类
+                queryWrapper.eq("user_id", userId);
             }
-            
-            queryWrapper.orderByDesc("created_at");
-            
-            List<Category> categories = categoryService.list(queryWrapper);
-            logger.info("Categories found - Output - count: {}", categories.size());
-            logger.debug("Categories details: {}", categories);
-            return ResponseEntity.ok(categories);
-        } catch (Exception e) {
-            logger.error("Failed to get categories - type: {}, userId: {}, error: {}", 
-                type, userId, e.getMessage());
-            return ResponseEntity.internalServerError().build();
+        } else {
+            Long currentUserId = RequestAuthUtil.requireCurrentUserId(request);
+            if (userId != null && !currentUserId.equals(userId)) {
+                throw new ForbiddenException("You do not have permission to access this user's categories");
+            }
+            queryWrapper.eq("user_id", currentUserId);
+        }
+
+        return ResponseEntity.ok(categoryService.list(queryWrapper));
+    }
+
+    private void validateCreateRequest(CategoryRequest categoryRequest) {
+        if (categoryRequest == null) {
+            throw new BadRequestException("Request body is required");
+        }
+        validateRequiredText(categoryRequest.getName(), "Category name is required");
+        validateRequiredText(categoryRequest.getIcon(), "Category icon is required");
+        validateRequiredText(categoryRequest.getColor(), "Category color is required");
+        validateRequiredText(categoryRequest.getType(), "Category type is required");
+    }
+
+    private void validateUpdateRequest(CategoryRequest categoryRequest) {
+        if (categoryRequest.getName() != null) {
+            validateRequiredText(categoryRequest.getName(), "Category name cannot be blank");
+        }
+        if (categoryRequest.getIcon() != null) {
+            validateRequiredText(categoryRequest.getIcon(), "Category icon cannot be blank");
+        }
+        if (categoryRequest.getColor() != null) {
+            validateRequiredText(categoryRequest.getColor(), "Category color cannot be blank");
+        }
+        if (categoryRequest.getType() != null) {
+            validateRequiredText(categoryRequest.getType(), "Category type cannot be blank");
+        }
+        if (categoryRequest.getName() == null && categoryRequest.getIcon() == null
+                && categoryRequest.getColor() == null && categoryRequest.getType() == null) {
+            throw new BadRequestException("At least one category field must be provided");
         }
     }
-} 
+
+    private void validateRequiredText(String value, String message) {
+        if (!StringUtils.hasText(value)) {
+            throw new BadRequestException(message);
+        }
+    }
+
+    private void requireSelfOrAdmin(HttpServletRequest request, Long userId) {
+        if (userId == null) {
+            throw new BadRequestException("User id is required");
+        }
+        if (!RequestAuthUtil.isSelfOrAdmin(request, userId)) {
+            throw new ForbiddenException("You do not have permission to access this category");
+        }
+    }
+
+    private Category requireCategory(Long categoryId) {
+        if (categoryId == null) {
+            throw new BadRequestException("Category id is required");
+        }
+        Category category = categoryService.getById(categoryId);
+        if (category == null) {
+            throw new ResourceNotFoundException("Category not found");
+        }
+        return category;
+    }
+
+    private String resolveString(String requestedValue, String existingValue) {
+        if (!StringUtils.hasText(requestedValue)) {
+            return existingValue;
+        }
+        return requestedValue.trim();
+    }
+}

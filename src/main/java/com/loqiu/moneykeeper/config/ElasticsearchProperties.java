@@ -10,4 +10,5 @@ public class ElasticsearchProperties {
     private int port = 9200;
     private String username;
     private String password;
-} 
+    private String indexName = "moneykeeper-records";
+}
