@@ -1248,15 +1248,112 @@ Webhook 的返回：
   - `GET /api/payments/subscriptions/current`
   - `GET /api/payments/orders`
 - 如果 success 页刚回来时 webhook 还没处理完，本地订阅可能短暂还是 `status = none` 或订单还没变成 `paid`，前端建议做短轮询而不是立即下结论
+### 13.11 前端改造清单（支付）
+
+前端如果之前是“点击按钮后直接跳固定 Stripe 链接”，现在必须改成下面这套流程：
+
+- 结算入口改成先调用 `POST /api/payments/checkout-sessions`，再跳转返回的 `data.checkoutUrl`
+- 不要再在前端写死 Payment Link、Checkout Link、`buy.stripe.com` 或 `checkout.stripe.com` 固定地址
+- 支付页或订阅页初始化时，建议先请求：
+  - `GET /api/payments/status`
+  - `GET /api/payments/plans`
+- 如果 `status.data.ready = false`，前端应禁用订阅按钮，并提示“支付暂不可用”
+- 如果 `GET /api/payments/subscriptions/current` 返回 `active = true`，前端不要继续走 `checkout-sessions`，而是优先提供：
+  - “管理订阅” -> `POST /api/payments/billing-portal-sessions`
+  - “取消订阅” -> `POST /api/payments/subscriptions/current/cancel`
+- 前端不要调用 `/api/payments/webhooks/stripe`，这个接口只给 Stripe 服务器和 Stripe CLI 转发使用
+- 订单页或会员页建议展示本地订单状态，至少识别：
+  - `checkout_created`
+  - `paid`
+  - `payment_failed`
+- 成功页不要在前端本地直接把会员状态改成已开通，必须以后端接口结果为准
+
+推荐页面行为：
+
+1. 订阅页加载
+   - 请求 `GET /api/payments/status`
+   - 请求 `GET /api/payments/plans`
+   - 请求 `GET /api/payments/subscriptions/current`
+2. 如果当前无有效订阅
+   - 展示套餐
+   - 点击“订阅”时请求 `POST /api/payments/checkout-sessions`
+   - 拿到 `checkoutUrl` 后立即跳转
+3. 如果当前已有有效订阅
+   - 展示当前套餐和到期时间
+   - 展示“管理订阅”和“取消订阅”入口
+4. 从 Stripe `successUrl` 返回后
+   - 不要直接宣布“会员已开通”
+   - 先轮询 `GET /api/payments/subscriptions/current`
+   - 再轮询 `GET /api/payments/orders`
+
+### 13.12 真实测试步骤（给前端联调）
+
+当前开发环境已验证：
+
+- `GET /api/payments/status` 返回 `ready = true`
+- 当前测试套餐存在：
+  - `planCode = pro_monthly`
+  - `currency = gbp`
+  - `amountMinor = 990`
+
+建议前端按下面步骤做真实联调：
+
+1. 登录获取 JWT
+2. 打开订阅页，调用：
+   - `GET /api/payments/status`
+   - `GET /api/payments/plans`
+3. 选择 `pro_monthly`
+4. 调用 `POST /api/payments/checkout-sessions`
+
+请求示例：
+```json
+{
+  "planCode": "pro_monthly",
+  "successUrl": "http://192.168.1.102/billing/success",
+  "cancelUrl": "http://192.168.1.102/billing/cancel"
+}
+```
+
+5. 浏览器跳转到返回的 `checkoutUrl`
+6. 在 Stripe Hosted Checkout 完成测试支付
+7. 跳回 `successUrl` 页面后，前端连续轮询以下接口，直到状态稳定：
+   - `GET /api/payments/subscriptions/current`
+   - `GET /api/payments/orders`
+
+推荐轮询策略：
+
+- 间隔：2 秒
+- 次数：最多 10 次
+- 停止条件：
+  - 订阅 `status = active`，或
+  - 最新订单 `status = paid`
+
+真实测试通过的判定标准：
+
+- `GET /api/payments/subscriptions/current` 返回：
+  - `active = true`
+  - `status = active`
+  - `planCode = pro_monthly`
+- `GET /api/payments/orders` 最新一条订单返回：
+  - `status = paid`
+  - `stripeSubscriptionId` 非空
+- 后续再次进入订阅页时，前端应优先展示“当前订阅中”状态，而不是再次显示购买入口
+
+如果 success 页面刚回来时仍看到：
+
+- 订阅 `status = none`
+- 或订单仍是 `checkout_created`
+
+这通常表示 Stripe webhook 还在路上，前端应继续短轮询，不要立即判定失败。
 ## 14. 鍓嶇鑱旇皟閲嶇偣璇存槑
 
-### 14.1 鍏堝鐞?401 绾枃鏈垎鏀?
+## 14.1 鍏堝鐞?401 绾枃鏈垎鏀?
 鎵€鏈夊彈淇濇姢鎺ュ彛閮藉彲鑳藉湪杩涘叆 controller 涔嬪墠琚嫤鎴垚锛?
 - HTTP `401`
 - 鏂囨湰 `Unauthorized`
 
 鍓嶇涓嶈鍋囧畾澶辫触涓€瀹氭槸 JSON銆?
-### 14.2 `MkApiResponse` 妯″潡涓嶈兘鍙湅 HTTP 鐘舵€佺爜
+## 14.2 `MkApiResponse` 妯″潡涓嶈兘鍙湅 HTTP 鐘舵€佺爜
 
 璁よ瘉銆並afka銆佹敮浠樿繖涓夌被鎺ュ彛锛宑ontroller 鍐呴儴寰堝閿欒閮借繕鏄?HTTP `200`锛屽彧鏄?body 閲岀殑 `code != 200`銆備絾杩欎笁绫绘帴鍙ｄ篃鍙兘鍦ㄨ繘鍏?controller 鍓嶏紝鍏堣繑鍥?HTTP `400` 鐨?`ApiErrorResponse`銆?
 鍓嶇鍒ゆ柇閫昏緫寤鸿锛?
@@ -1265,10 +1362,10 @@ Webhook 的返回：
 3. 濡傛灉 body 鏄?`MkApiResponse` 缁撴瀯锛屽啀鐪?`body.code`
 4. 鏅€?JSON 妯″潡鎸?HTTP 鐘舵€佺爜鍜?`ApiErrorResponse` 澶勭悊
 
-### 14.3 SSE 鎺ュ彛鐨?header 闄愬埗
+## 14.3 SSE 鎺ュ彛鐨?header 闄愬埗
 
 `GET /api/notifications/subscribe/{userId}` 闇€瑕?JWT锛屼絾娴忚鍣ㄥ師鐢?`EventSource` 涓嶆柟渚垮甫鑷畾涔?`Authorization` 澶达紝鑱旇皟鏃舵瀬鏄撶洿鎺ユ敹鍒?`401`銆?
-### 14.4 SSE `message` 浜嬩欢 payload 闇€瑕佸吋瀹逛袱绉嶆牸寮?
+## 14.4 SSE `message` 浜嬩欢 payload 闇€瑕佸吋瀹逛袱绉嶆牸寮?
 褰撳墠 `SseEmitterServiceImpl` 瀛樺湪瀹炵幇宸紓锛?
 - 鍗曞彂閫氱煡 `sendMessage()` 鎺ㄩ€佺殑鏄?JSON 瀛楃涓?- 骞挎挱閫氱煡 `sendMessageToAll()` 鎺ㄩ€佺殑鏄璞?
 鍓嶇鐩戝惉 `message` 浜嬩欢鏃跺缓璁細
@@ -1276,10 +1373,10 @@ Webhook 的返回：
 - 濡傛灉 `data` 鏄瓧绗︿覆锛屽厛灏濊瘯 `JSON.parse`
 - 濡傛灉宸茬粡鏄璞★紝鐩存帴浣跨敤
 
-### 14.5 Excel 涓嬭浇閿欒澶勭悊
+## 14.5 Excel 涓嬭浇閿欒澶勭悊
 
 Excel 鎴愬姛鏃惰繑鍥炰簩杩涘埗鏂囦欢锛屽け璐ユ椂鍙兘鏄?JSON 閿欒浣擄紝鍓嶇涓嬭浇閫昏緫瑕佸吋瀹硅繖涓ょ鎯呭喌銆?
-### 14.6 褰撳墠鍚庣宸茬煡椋庨櫓
+## 14.6 褰撳墠鍚庣宸茬煡椋庨櫓
 
 浠ヤ笅闂宸茬粡鍦ㄤ唬鐮?review 涓‘璁わ紝鍓嶇鑱旇皟鏃惰閲嶇偣鍏虫敞锛?
 - 鏂板缓鍒嗙被鎴栨柊寤鸿褰曟垚鍔熷悗锛屽搷搴斾綋閲岀殑 `id` 鍙兘杩樻病鏈夊洖濉?- 鏂板缓璁板綍鍚庯紝鎼滅储绱㈠紩鍙兘涓嶄細绔嬪埢鍖呭惈璇ユ潯璁板綍
