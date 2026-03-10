@@ -9,7 +9,6 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
@@ -21,10 +20,9 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(@NonNull CorsRegistry registry) {
-        // SSE 端点的特殊 CORS 配置
         registry.addMapping("/api/notifications/subscribe/**")
-                .allowedOrigins("https://cindypig.com")  // 严格指定允许的源
-                .allowedMethods("GET")  // SSE 只需要 GET
+                .allowedOrigins("https://cindypig.com")
+                .allowedMethods("GET")
                 .allowCredentials(true)
                 .exposedHeaders("*")
                 .maxAge(3600);
@@ -42,8 +40,17 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(@NonNull InterceptorRegistry registry) {
         registry.addInterceptor(jwtAuthenticationInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/login")
-                .excludePathPatterns("/**", "OPTIONS");
+                .excludePathPatterns(
+                        "/api/auth/login",
+                        "/api/auth/register",
+                        "/api/auth/google",
+                        "/api/payments/webhooks/stripe",
+                        "/swagger-ui.html",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                        "/error"
+                );
+
         registry.addInterceptor(traceIdInterceptor)
                 .addPathPatterns("/api/**");
     }

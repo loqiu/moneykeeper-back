@@ -3,8 +3,9 @@ package com.loqiu.moneykeeper.response;
 import java.time.LocalDateTime;
 
 /**
- * 统一API响应类
- * @param <T> 响应数据类型
+ * Unified API response model.
+ *
+ * @param <T> response payload type
  */
 public class MkApiResponse<T> {
 
@@ -20,6 +21,8 @@ public class MkApiResponse<T> {
     }
 
     private MkApiResponse(Builder<T> builder) {
+        this.timestamp = LocalDateTime.now();
+        this.requestId = generateRequestId();
         this.code = builder.code;
         this.message = builder.message;
         this.data = builder.data;
@@ -53,7 +56,6 @@ public class MkApiResponse<T> {
         }
 
         public MkApiResponse<T> build() {
-            // 参数验证
             if (code == null) {
                 throw new IllegalStateException("code cannot be null");
             }
@@ -64,11 +66,10 @@ public class MkApiResponse<T> {
         }
     }
 
-    // 便捷的静态工厂方法
     public static <T> MkApiResponse<T> success(T data) {
         return MkApiResponse.<T>builder()
                 .code(200)
-                .message("操作成功")
+                .message("Operation succeeded")
                 .data(data)
                 .build();
     }
@@ -108,7 +109,6 @@ public class MkApiResponse<T> {
         return String.format("REQ-%d", System.currentTimeMillis());
     }
 
-    // Getters and Setters
     public Integer getCode() {
         return code;
     }

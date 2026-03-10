@@ -1,7 +1,9 @@
 package com.loqiu.moneykeeper.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
+
 import java.time.LocalDateTime;
 
 @Data
@@ -19,8 +21,9 @@ public class User {
 
     @NonNull
     private String username;
-    
+
     @NonNull
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     @TableField("email")
@@ -34,13 +37,16 @@ public class User {
 
     @TableField("phone_number")
     private String phoneNumber;
-    
+
+    @TableField("role")
+    private String role;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
-    
+
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
-    
+
     @TableLogic(value = "0", delval = "1")
     @TableField(fill = FieldFill.INSERT)
     private Integer deletedAt;
@@ -49,4 +55,4 @@ public class User {
 
     @TableField("registration_completed_at")
     private LocalDateTime registrationCompletedAt;
-} 
+}

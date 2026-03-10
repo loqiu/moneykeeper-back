@@ -1,28 +1,29 @@
 package com.loqiu.moneykeeper.controller;
 
-import com.loqiu.moneykeeper.entity.User;
-import com.loqiu.moneykeeper.exception.UnauthorizedException;
+import com.loqiu.moneykeeper.exception.BadRequestException;
+import com.loqiu.moneykeeper.exception.ForbiddenException;
 import com.loqiu.moneykeeper.service.NotificationService;
 import com.loqiu.moneykeeper.service.SseEmitterService;
-import com.loqiu.moneykeeper.service.UserService;
-import com.loqiu.moneykeeper.util.JwtUtil;
+import com.loqiu.moneykeeper.util.RequestAuthUtil;
 import com.loqiu.moneykeeper.vo.NotificationMessage;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/notifications")
 @CrossOrigin(
-    originPatterns = {"*"},
-    allowCredentials = "true",
-    allowedHeaders = "*",
-    exposedHeaders = "*",
-    maxAge = 3600
+        originPatterns = {"*"},
+        allowCredentials = "true",
+        allowedHeaders = "*",
+        exposedHeaders = "*",
+        maxAge = 3600
 )
 public class NotificationController {
 
@@ -34,126 +35,114 @@ public class NotificationController {
     @Autowired
     private NotificationService notificationService;
 
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private JwtUtil jwtUtil;
-
     @GetMapping(value = "/subscribe/{userId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(
-            @PathVariable Long userId,
-            @RequestHeader("Authorization") String token) {
-        logger.info("开始处理SSE订阅请求 - 用户ID: {},token:{}", userId,token);
-        // 去掉Bearer
-        token = token.substring(7);
-        String userPin = jwtUtil.getUserIdFromToken(token);
-        logger.info("sse订阅请求 - userPin: {}", userPin);
-        User user = userService.findByUserPin(userPin);
-        if (userId != user.getId()) {
-            logger.warn("SSE订阅失败 - 用户ID不匹配 - 请求用户ID: {}, token中用户ID: {}", 
-                userId, jwtUtil.getUserIdFromToken(token));
-            throw new UnauthorizedException();
-        }
-        logger.info("SSE订阅成功 - 用户ID: {}", userId);
+    public SseEmitter subscribe(@PathVariable Long userId, HttpServletRequest request) {
+        Long currentUserId = RequestAuthUtil.requireCurrentUserId(request);
+        logger.info("Processing SSE subscribe request - targetUserId: {}, currentUserId: {}", userId, currentUserId);
+        requireSelfOrAdmin(request, userId);
         return sseEmitterService.createEmitter(userId);
     }
 
     @PostMapping("/send/{userId}")
-    public ResponseEntity<String> sendMessage(
-            @PathVariable Long userId,
-            @RequestBody NotificationMessage message) {
-        logger.info("开始发送消息 - 用户ID: {}, 标题: {}, 类型: {}", 
-            userId, message.getTitle(), message.getType());
-        try {
-            notificationService.sendMessage(userId, message.getTitle(), 
-                message.getMessage(), message.getType());
-            logger.info("消息发送成功 - 用户ID: {}, 标题: {}", userId, message.getTitle());
-            return ResponseEntity.ok("消息已发送");
-        } catch (Exception e) {
-            logger.error("消息发送失败 - 用户ID: {}, 标题: {}, 错误: {}", 
-                userId, message.getTitle(), e.getMessage());
-            return ResponseEntity.internalServerError().body("消息发送失败");
-        }
+    public ResponseEntity<String> sendMessage(@PathVariable Long userId,
+                                              @RequestBody NotificationMessage message,
+                                              HttpServletRequest request) {
+        logger.info("Sending notification - targetUserId: {}, currentUserId: {}, title: {}",
+                userId, RequestAuthUtil.getCurrentUserId(request), message == null ? null : message.getTitle());
+        requireSelfOrAdmin(request, userId);
+        NotificationMessage validMessage = requireNotificationMessage(message);
+        notificationService.sendMessage(userId, validMessage.getTitle(), validMessage.getMessage(), validMessage.getType());
+        return ResponseEntity.ok("Message sent");
     }
 
     @PostMapping("/broadcast")
-    public ResponseEntity<String> broadcast(@RequestBody NotificationMessage message) {
-        logger.info("开始广播消息 - 标题: {}, 类型: {}", message.getTitle(), message.getType());
-        try {
-            notificationService.broadcastMessage(message.getTitle(), 
-                message.getMessage(), message.getType());
-            logger.info("广播消息发送成功 - 标题: {}", message.getTitle());
-            return ResponseEntity.ok("广播消息已发送");
-        } catch (Exception e) {
-            logger.error("广播消息发送失败 - 标题: {}, 错误: {}", 
-                message.getTitle(), e.getMessage());
-            return ResponseEntity.internalServerError().body("广播消息发送失败");
-        }
+    public ResponseEntity<String> broadcast(@RequestBody NotificationMessage message, HttpServletRequest request) {
+        logger.info("Broadcast request - currentUserId: {}, title: {}",
+                RequestAuthUtil.getCurrentUserId(request), message == null ? null : message.getTitle());
+        requireAdmin(request);
+        NotificationMessage validMessage = requireNotificationMessage(message);
+        notificationService.broadcastMessage(validMessage.getTitle(), validMessage.getMessage(), validMessage.getType());
+        return ResponseEntity.ok("Broadcast sent");
     }
 
-    // 便捷方法
     @PostMapping("/send/{userId}/success")
-    public ResponseEntity<String> sendSuccessMessage(
-            @PathVariable Long userId,
-            @RequestParam String title,
-            @RequestParam String message) {
-        logger.info("开始发送成功消息 - 用户ID: {}, 标题: {}", userId, title);
-        try {
-            notificationService.sendSuccessMessage(userId, title, message);
-            logger.info("成功消息发送成功 - 用户ID: {}, 标题: {}", userId, title);
-            return ResponseEntity.ok("成功消息已发送");
-        } catch (Exception e) {
-            logger.error("成功消息发送失败 - 用户ID: {}, 标题: {}, 错误: {}", 
-                userId, title, e.getMessage());
-            return ResponseEntity.internalServerError().body("成功消息发送失败");
-        }
+    public ResponseEntity<String> sendSuccessMessage(@PathVariable Long userId,
+                                                     @RequestParam String title,
+                                                     @RequestParam String message,
+                                                     HttpServletRequest request) {
+        logger.info("Sending success notification - targetUserId: {}, currentUserId: {}", userId, RequestAuthUtil.getCurrentUserId(request));
+        requireSelfOrAdmin(request, userId);
+        notificationService.sendSuccessMessage(userId, requireText(title, "Title is required"), requireText(message, "Message is required"));
+        return ResponseEntity.ok("Success message sent");
     }
 
     @PostMapping("/send/{userId}/error")
-    public ResponseEntity<String> sendErrorMessage(
-            @PathVariable Long userId,
-            @RequestParam String title,
-            @RequestParam String message) {
-        logger.info("开始发送错误消息 - 用户ID: {}, 标题: {}", userId, title);
-        try {
-            notificationService.sendErrorMessage(userId, title, message);
-            logger.info("错误消息发送成功 - 用户ID: {}, 标题: {}", userId, title);
-            return ResponseEntity.ok("错误消息已发送");
-        } catch (Exception e) {
-            logger.error("错误消息发送失败 - 用户ID: {}, 标题: {}, 错误: {}", 
-                userId, title, e.getMessage());
-            return ResponseEntity.internalServerError().body("错误消息发送失败");
-        }
+    public ResponseEntity<String> sendErrorMessage(@PathVariable Long userId,
+                                                   @RequestParam String title,
+                                                   @RequestParam String message,
+                                                   HttpServletRequest request) {
+        logger.info("Sending error notification - targetUserId: {}, currentUserId: {}", userId, RequestAuthUtil.getCurrentUserId(request));
+        requireSelfOrAdmin(request, userId);
+        notificationService.sendErrorMessage(userId, requireText(title, "Title is required"), requireText(message, "Message is required"));
+        return ResponseEntity.ok("Error message sent");
     }
 
     @PostMapping("/broadcast/success")
-    public ResponseEntity<String> broadcastSuccessMessage(
-            @RequestParam String title,
-            @RequestParam String message) {
-        logger.info("开始广播成功消息 - 标题: {}", title);
-        try {
-            notificationService.broadcastSuccessMessage(title, message);
-            logger.info("成功消息广播成功 - 标题: {}", title);
-            return ResponseEntity.ok("成功广播消息已发送");
-        } catch (Exception e) {
-            logger.error("成功消息广播失败 - 标题: {}, 错误: {}", title, e.getMessage());
-            return ResponseEntity.internalServerError().body("成功广播消息发送失败");
-        }
+    public ResponseEntity<String> broadcastSuccessMessage(@RequestParam String title,
+                                                          @RequestParam String message,
+                                                          HttpServletRequest request) {
+        logger.info("Broadcasting success notification - currentUserId: {}", RequestAuthUtil.getCurrentUserId(request));
+        requireAdmin(request);
+        notificationService.broadcastSuccessMessage(requireText(title, "Title is required"), requireText(message, "Message is required"));
+        return ResponseEntity.ok("Success broadcast sent");
     }
 
     @PostMapping("/broadcast/error")
-    public ResponseEntity<String> broadcastErrorMessage(
-            @RequestParam String title,
-            @RequestParam String message) {
-        logger.info("开始广播错误消息 - 标题: {}", title);
-        try {
-            notificationService.broadcastErrorMessage(title, message);
-            logger.info("错误消息广播成功 - 标题: {}", title);
-            return ResponseEntity.ok("错误广播消息已发送");
-        } catch (Exception e) {
-            logger.error("错误消息广播失败 - 标题: {}, 错误: {}", title, e.getMessage());
-            return ResponseEntity.internalServerError().body("错误广播消息发送失败");
+    public ResponseEntity<String> broadcastErrorMessage(@RequestParam String title,
+                                                        @RequestParam String message,
+                                                        HttpServletRequest request) {
+        logger.info("Broadcasting error notification - currentUserId: {}", RequestAuthUtil.getCurrentUserId(request));
+        requireAdmin(request);
+        notificationService.broadcastErrorMessage(requireText(title, "Title is required"), requireText(message, "Message is required"));
+        return ResponseEntity.ok("Error broadcast sent");
+    }
+
+    private NotificationMessage requireNotificationMessage(NotificationMessage message) {
+        if (message == null) {
+            throw new BadRequestException("Request body is required");
+        }
+        String title = requireText(message.getTitle(), "Title is required");
+        String content = requireText(message.getMessage(), "Message is required");
+        if (message.getType() == null) {
+            throw new BadRequestException("Notification type is required");
+        }
+        return NotificationMessage.builder()
+                .title(title)
+                .message(content)
+                .type(message.getType())
+                .timestamp(message.getTimestamp())
+                .build();
+    }
+
+    private String requireText(String value, String message) {
+        if (!StringUtils.hasText(value)) {
+            throw new BadRequestException(message);
+        }
+        return value.trim();
+    }
+
+    private void requireAdmin(HttpServletRequest request) {
+        if (!RequestAuthUtil.isAdmin(request)) {
+            throw new ForbiddenException("Admin role is required");
         }
     }
-} 
+
+    private void requireSelfOrAdmin(HttpServletRequest request, Long userId) {
+        if (userId == null) {
+            throw new BadRequestException("User id is required");
+        }
+        if (!RequestAuthUtil.isSelfOrAdmin(request, userId)) {
+            throw new ForbiddenException("You do not have permission to access this notification resource");
+        }
+    }
+}

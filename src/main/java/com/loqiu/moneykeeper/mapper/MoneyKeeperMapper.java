@@ -14,28 +14,28 @@ import java.util.Map;
 //@Mapper
 public interface MoneyKeeperMapper extends BaseMapper<MoneyKeeper> {
 
-    public List<MoneyKeeperDTO> getAllRecordsWithCategoryName(@Param("userId") Long userId,
-                                                              @Param("startDate") LocalDate startDate,
-                                                              @Param("endDate") LocalDate endDate
-    );
+    List<MoneyKeeperDTO> getAllRecordsWithCategoryName(@Param("userId") Long userId,
+                                                       @Param("startDate") LocalDate startDate,
+                                                       @Param("endDate") LocalDate endDate);
 
-    public List<MoneyKeeperDTO> getAllRecordsByCategoryName(@Param("categoryName") String categoryName,
-                                                              @Param("userId") Long userId,
-                                                              @Param("startDate") LocalDate startDate,
-                                                              @Param("endDate") LocalDate endDate
-    );
+    List<MoneyKeeperDTO> getAllRecordsByCategoryName(@Param("categoryName") String categoryName,
+                                                     @Param("userId") Long userId,
+                                                     @Param("startDate") LocalDate startDate,
+                                                     @Param("endDate") LocalDate endDate);
+
+    MoneyKeeperDTO getRecordWithCategoryName(@Param("recordId") Long recordId);
+
+    List<MoneyKeeperDTO> getRecordsWithCategoryNameByCategoryId(@Param("categoryId") Long categoryId);
 
     Map<String, BigDecimal> getMoneyKeeperSummary(@Param("userId") Long userId,
                                                   @Param("startDate") LocalDate startDate,
-                                                  @Param("endDate") LocalDate endDate
-    );
+                                                  @Param("endDate") LocalDate endDate);
 
     List<MoneyKeeper> getMoneyKeeperRecords(@Param("userId") Long userId,
                                             @Param("startDate") LocalDate startDate,
-                                            @Param("endDate") LocalDate endDate
-    );
+                                            @Param("endDate") LocalDate endDate);
 
     Boolean insertCategory(Category category);
 
     Boolean insertMoneyKeeper(MoneyKeeper moneyKeeper);
-} 
+}
