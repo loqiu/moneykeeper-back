@@ -9,14 +9,14 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
 
 @Configuration
-@EnableConfigurationProperties(ElasticsearchProperties.class)
 @ConditionalOnProperty(prefix = "app.elasticsearch", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class ElasticsearchConfig {
 
@@ -25,26 +25,29 @@ public class ElasticsearchConfig {
 
     @Bean
     public ElasticsearchClient elasticsearchClient() {
-        BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
-        credsProvider.setCredentials(
-                AuthScope.ANY,
-                new UsernamePasswordCredentials(
-                        elasticsearchProperties.getUsername(),
-                        elasticsearchProperties.getPassword()
+        RestClientBuilder builder = RestClient.builder(
+                new HttpHost(
+                        elasticsearchProperties.getHost(),
+                        elasticsearchProperties.getPort(),
+                        "http"
                 )
         );
 
-        RestClient restClient = RestClient.builder(
-                        new HttpHost(
-                                elasticsearchProperties.getHost(),
-                                elasticsearchProperties.getPort(),
-                                "http"
-                        )
-                )
-                .setHttpClientConfigCallback(httpAsyncClientBuilder ->
-                        httpAsyncClientBuilder.setDefaultCredentialsProvider(credsProvider)
-                )
-                .build();
+        if (StringUtils.hasText(elasticsearchProperties.getUsername())) {
+            BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
+            credsProvider.setCredentials(
+                    AuthScope.ANY,
+                    new UsernamePasswordCredentials(
+                            elasticsearchProperties.getUsername(),
+                            elasticsearchProperties.getPassword()
+                    )
+            );
+            builder.setHttpClientConfigCallback(httpAsyncClientBuilder ->
+                    httpAsyncClientBuilder.setDefaultCredentialsProvider(credsProvider)
+            );
+        }
+
+        RestClient restClient = builder.build();
 
         ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
         return new ElasticsearchClient(transport);

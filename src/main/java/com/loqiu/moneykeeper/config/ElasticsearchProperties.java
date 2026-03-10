@@ -1,10 +1,12 @@
 package com.loqiu.moneykeeper.config;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 @Data
-@ConfigurationProperties(prefix = "elasticsearch")
+@Component
+@ConfigurationProperties(prefix = "app.elasticsearch")
 public class ElasticsearchProperties {
     private String host = "localhost";
     private int port = 9200;

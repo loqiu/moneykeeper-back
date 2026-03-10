@@ -44,6 +44,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/auth/login",
                         "/api/auth/register",
                         "/api/auth/google",
+                        "/api/payments/webhooks/stripe",
                         "/swagger-ui.html",
                         "/swagger-ui/**",
                         "/v3/api-docs/**",

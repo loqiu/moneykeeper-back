@@ -106,18 +106,24 @@ public class IntegrationStatusServiceImpl implements IntegrationStatusService {
     }
 
     private IntegrationModuleStatusDTO buildPaymentStatus() {
-        boolean enabled = paymentProperties.isEnabled();
-        boolean ready = applicationContext.getBeanNamesForType(PaymentStripeService.class).length > 0;
+        boolean enabled = paymentStripeService.isEnabled();
+        boolean ready = paymentStripeService.isReady();
         return IntegrationModuleStatusDTO.builder()
                 .module("payment")
                 .enabled(enabled)
                 .ready(ready)
-                .implemented(false)
-                .summary(enabled ? paymentProperties.getProvider() + " payment module is enabled with placeholder service" : "Payment module is disabled via app.payment.enabled")
+                .implemented(true)
+                .summary(!enabled
+                        ? "Payment module is disabled via app.payment.enabled"
+                        : (ready
+                        ? paymentProperties.getProvider() + " hosted checkout and webhook flow is ready"
+                        : paymentProperties.getProvider() + " payment module is enabled but the Stripe secret key or webhook secret is missing"))
                 .metadata(Map.of(
                         "provider", paymentProperties.getProvider(),
                         "defaultCurrency", paymentProperties.getDefaultCurrency(),
-                        "serviceBeanPresent", ready
+                        "apiReady", paymentProperties.hasSecretKey(),
+                        "webhookReady", paymentProperties.hasWebhookSecret(),
+                        "billingPortalReturnUrlConfigured", paymentProperties.hasBillingPortalReturnUrl()
                 ))
                 .build();
     }
