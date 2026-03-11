@@ -12,6 +12,13 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    private static final String[] ALLOWED_FRONTEND_ORIGINS = {
+            "https://money-keeper.com",
+            "https://www.money-keeper.com",
+            "http://localhost:8080",
+            "http://localhost:5173"
+    };
+
     @Autowired
     private JwtAuthenticationInterceptor jwtAuthenticationInterceptor;
 
@@ -21,14 +28,15 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(@NonNull CorsRegistry registry) {
         registry.addMapping("/api/notifications/subscribe/**")
-                .allowedOrigins("https://money-keeper.com")
+                .allowedOrigins(ALLOWED_FRONTEND_ORIGINS)
                 .allowedMethods("GET")
+                .allowedHeaders("*")
                 .allowCredentials(true)
                 .exposedHeaders("*")
                 .maxAge(3600);
 
         registry.addMapping("/api/**")
-                .allowedOriginPatterns("*")
+                .allowedOrigins(ALLOWED_FRONTEND_ORIGINS)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)
