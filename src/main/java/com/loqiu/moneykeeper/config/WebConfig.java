@@ -21,7 +21,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(@NonNull CorsRegistry registry) {
         registry.addMapping("/api/notifications/subscribe/**")
-                .allowedOrigins("https://cindypig.com")
+                .allowedOrigins("https://money-keeper.com")
                 .allowedMethods("GET")
                 .allowCredentials(true)
                 .exposedHeaders("*")
