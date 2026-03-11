@@ -4,6 +4,7 @@
 
     <resultMap id="MoneyKeeperResultMap" type="com.loqiu.moneykeeper.dto.MoneyKeeperDTO">
         <id column="id" property="id"/>
+        <result column="ledger_id" property="ledgerId"/>
         <result column="user_id" property="userId"/>
         <result column="category_id" property="categoryId"/>
         <result column="updated_at" property="updatedAt"/>
@@ -16,6 +17,7 @@
 
     <sql id="MoneyKeeperWithCategoryColumns">
         mk.id as id,
+        mk.ledger_id as ledger_id,
         mk.user_id as user_id,
         mk.category_id as category_id,
         mk.transaction_date as transaction_date,
@@ -32,6 +34,25 @@
         from moneykeeper as mk
         left join categories as c on mk.category_id = c.id
         where mk.deleted_at = 0
+        <if test="userId != null">
+            and mk.user_id = #{userId}
+        </if>
+        <if test="startDate != null">
+            and mk.transaction_date >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            and mk.transaction_date &lt;= #{endDate}
+        </if>
+        order by mk.updated_at desc
+    </select>
+
+    <select id="getLedgerRecordsWithCategoryName" resultMap="MoneyKeeperResultMap">
+        select
+            <include refid="MoneyKeeperWithCategoryColumns"/>
+        from moneykeeper as mk
+        left join categories as c on mk.category_id = c.id
+        where mk.deleted_at = 0
+          and mk.ledger_id = #{ledgerId}
         <if test="userId != null">
             and mk.user_id = #{userId}
         </if>
@@ -86,9 +107,9 @@
 
     <select id="getMoneyKeeperSummary" resultType="java.util.Map">
         SELECT
-            COALESCE(SUM(CASE WHEN type = '閺€璺哄弳' THEN amount ELSE 0 END), 0) as totalIncome,
-            COALESCE(SUM(CASE WHEN type = '閺€顖氬毉' THEN amount ELSE 0 END), 0) as totalExpense,
-            COALESCE(SUM(CASE WHEN type = '閺€璺哄弳' THEN amount ELSE -amount END), 0) as balance
+            COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as totalIncome,
+            COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as totalExpense,
+            COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0) as balance
         FROM moneykeeper mk
         WHERE user_id = #{userId} and mk.deleted_at = 0
         <if test="startDate != null">
@@ -111,16 +132,16 @@
         ORDER BY transaction_date DESC
     </select>
 
-    <insert id="insertCategory">
-        INSERT INTO categories (name, icon, color, type, user_id, created_at, updated_at)
-        VALUES (#{name}, #{icon}, #{color}, #{type}, #{userId}, #{createdAt}, #{updatedAt})
+    <insert id="insertCategory" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
+        INSERT INTO categories (name, icon, color, type, user_id, ledger_id, created_at, updated_at)
+        VALUES (#{name}, #{icon}, #{color}, #{type}, #{userId}, #{ledgerId}, #{createdAt}, #{updatedAt})
     </insert>
 
-    <insert id="insertMoneyKeeper">
+    <insert id="insertMoneyKeeper" useGeneratedKeys="true" keyProperty="id" keyColumn="id">
         INSERT INTO moneykeeper
-        (user_id, category_id, type, amount, transaction_date, notes, created_at, updated_at)
+        (user_id, ledger_id, category_id, type, amount, transaction_date, notes, created_at, updated_at)
         VALUES
-            (#{userId}, #{categoryId}, #{type}, #{amount}, #{transactionDate}, #{notes}, #{createdAt}, #{updatedAt});
+            (#{userId}, #{ledgerId}, #{categoryId}, #{type}, #{amount}, #{transactionDate}, #{notes}, #{createdAt}, #{updatedAt})
     </insert>
 
 </mapper>

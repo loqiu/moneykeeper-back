@@ -51,6 +51,7 @@ class RecordSearchControllerTest {
                 .thenReturn(List.of(
                         RecordSearchResultDTO.builder()
                                 .id(11L)
+                                .ledgerId(21L)
                                 .userId(1L)
                                 .categoryId(5L)
                                 .categoryName("Food")
@@ -69,6 +70,7 @@ class RecordSearchControllerTest {
                         .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(11))
+                .andExpect(jsonPath("$[0].ledgerId").value(21))
                 .andExpect(jsonPath("$[0].categoryName").value("Food"))
                 .andExpect(jsonPath("$[0].score").value(1.25));
 
@@ -113,6 +115,7 @@ class RecordSearchControllerTest {
                 RecordSearchReindexResultDTO.builder()
                         .scope("all")
                         .userId(null)
+                        .ledgerId(null)
                         .indexedCount(12)
                         .indexName("moneykeeper-records")
                         .reindexedAt(LocalDateTime.of(2026, 3, 8, 12, 0))
@@ -126,6 +129,28 @@ class RecordSearchControllerTest {
                 .andExpect(jsonPath("$.scope").value("all"))
                 .andExpect(jsonPath("$.indexedCount").value(12))
                 .andExpect(jsonPath("$.indexName").value("moneykeeper-records"));
+    }
+
+    @Test
+    void reindexLedgerRecordsShouldReturnResultForAdmin() throws Exception {
+        when(recordSearchService.reindexLedgerRecords(31L)).thenReturn(
+                RecordSearchReindexResultDTO.builder()
+                        .scope("ledger")
+                        .ledgerId(31L)
+                        .indexedCount(8)
+                        .indexName("moneykeeper-records")
+                        .reindexedAt(LocalDateTime.of(2026, 3, 11, 20, 0))
+                        .build()
+        );
+
+        mockMvc.perform(post("/api/search/records/reindex/ledger")
+                        .param("ledgerId", "31")
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 1L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "admin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.scope").value("ledger"))
+                .andExpect(jsonPath("$.ledgerId").value(31))
+                .andExpect(jsonPath("$.indexedCount").value(8));
     }
 
     @Test
@@ -163,6 +188,33 @@ class RecordSearchControllerTest {
                 .andExpect(jsonPath("$.indexExists").value(true))
                 .andExpect(jsonPath("$.indexedDocumentCount").value(8))
                 .andExpect(jsonPath("$.databaseRecordCount").value(9));
+    }
+
+    @Test
+    void getLedgerIndexStatsShouldReturnStatsForAdmin() throws Exception {
+        when(recordSearchService.getLedgerIndexStats(31L)).thenReturn(
+                RecordSearchIndexStatsDTO.builder()
+                        .scope("ledger")
+                        .ledgerId(31L)
+                        .enabled(true)
+                        .ready(true)
+                        .indexName("moneykeeper-records")
+                        .indexExists(true)
+                        .indexedDocumentCount(15L)
+                        .databaseRecordCount(15L)
+                        .statsCollectedAt(LocalDateTime.of(2026, 3, 11, 20, 30))
+                        .build()
+        );
+
+        mockMvc.perform(get("/api/search/records/stats/ledger")
+                        .param("ledgerId", "31")
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 1L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "admin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.scope").value("ledger"))
+                .andExpect(jsonPath("$.ledgerId").value(31))
+                .andExpect(jsonPath("$.indexedDocumentCount").value(15))
+                .andExpect(jsonPath("$.databaseRecordCount").value(15));
     }
 
     @Test

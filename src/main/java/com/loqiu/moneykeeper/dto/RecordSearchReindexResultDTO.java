@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 public class RecordSearchReindexResultDTO {
     private String scope;
     private Long userId;
+    private Long ledgerId;
     private Integer indexedCount;
     private String indexName;
     private LocalDateTime reindexedAt;

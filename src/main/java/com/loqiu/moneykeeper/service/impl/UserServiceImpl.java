@@ -4,14 +4,17 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.loqiu.moneykeeper.entity.User;
 import com.loqiu.moneykeeper.mapper.UserMapper;
+import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.UserService;
-
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
-
+    @Autowired
+    private LedgerService ledgerService;
 
     @Override
     public User findByUsername(String username) {
@@ -43,4 +46,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return getOne(queryWrapper);
     }
 
+    @Override
+    @Transactional
+    public boolean save(User entity) {
+        boolean saved = super.save(entity);
+        if (saved && entity != null && entity.getId() != null) {
+            ledgerService.getOrCreatePersonalLedger(entity.getId());
+        }
+        return saved;
+    }
 }

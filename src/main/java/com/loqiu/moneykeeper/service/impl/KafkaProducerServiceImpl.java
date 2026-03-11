@@ -1,12 +1,12 @@
 package com.loqiu.moneykeeper.service.impl;
 
+import com.loqiu.moneykeeper.config.KafkaFeatureProperties;
 import com.loqiu.moneykeeper.constant.KafkaTopicConstant;
 import com.loqiu.moneykeeper.service.KafkaProducerService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -19,8 +19,8 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
     @Autowired
     private ObjectProvider<KafkaTemplate<String, String>> kafkaTemplateProvider;
 
-    @Value("${app.kafka.enabled:false}")
-    private boolean kafkaEnabled;
+    @Autowired
+    private KafkaFeatureProperties kafkaFeatureProperties;
 
     @Override
     public void sendMessage(String topic, String key, String value) {
@@ -38,6 +38,6 @@ public class KafkaProducerServiceImpl implements KafkaProducerService {
 
     @Override
     public boolean isEnabled() {
-        return kafkaEnabled && kafkaTemplateProvider.getIfAvailable() != null;
+        return kafkaFeatureProperties.isEnabled() && kafkaTemplateProvider.getIfAvailable() != null;
     }
 }

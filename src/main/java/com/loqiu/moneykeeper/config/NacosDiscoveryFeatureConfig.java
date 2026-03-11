@@ -6,6 +6,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @EnableDiscoveryClient
-@ConditionalOnProperty(prefix = "spring.cloud.nacos.discovery", name = "enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(prefix = "app.nacos.discovery", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class NacosDiscoveryFeatureConfig {
 }

@@ -11,12 +11,16 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-//@Mapper
 public interface MoneyKeeperMapper extends BaseMapper<MoneyKeeper> {
 
     List<MoneyKeeperDTO> getAllRecordsWithCategoryName(@Param("userId") Long userId,
                                                        @Param("startDate") LocalDate startDate,
                                                        @Param("endDate") LocalDate endDate);
+
+    List<MoneyKeeperDTO> getLedgerRecordsWithCategoryName(@Param("ledgerId") Long ledgerId,
+                                                          @Param("userId") Long userId,
+                                                          @Param("startDate") LocalDate startDate,
+                                                          @Param("endDate") LocalDate endDate);
 
     List<MoneyKeeperDTO> getAllRecordsByCategoryName(@Param("categoryName") String categoryName,
                                                      @Param("userId") Long userId,

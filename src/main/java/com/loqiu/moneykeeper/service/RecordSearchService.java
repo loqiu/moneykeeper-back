@@ -23,9 +23,23 @@ public interface RecordSearchService {
                                               LocalDate endDate,
                                               int limit);
 
+    List<RecordSearchResultDTO> searchLedgerRecords(Long ledgerId,
+                                                    Long userId,
+                                                    String query,
+                                                    String type,
+                                                    Long categoryId,
+                                                    String categoryName,
+                                                    LocalDate startDate,
+                                                    LocalDate endDate,
+                                                    int limit);
+
     RecordSearchReindexResultDTO reindexRecords(Long userId);
 
+    RecordSearchReindexResultDTO reindexLedgerRecords(Long ledgerId);
+
     RecordSearchIndexStatsDTO getIndexStats(Long userId);
+
+    RecordSearchIndexStatsDTO getLedgerIndexStats(Long ledgerId);
 
     void syncRecordIfEnabled(Long recordId);
 

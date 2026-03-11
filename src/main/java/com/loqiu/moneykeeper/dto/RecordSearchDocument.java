@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class RecordSearchDocument {
     private Long recordId;
+    private Long ledgerId;
     private Long userId;
     private Long categoryId;
     private String categoryName;

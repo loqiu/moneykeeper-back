@@ -7,6 +7,7 @@ import com.loqiu.moneykeeper.exception.BadRequestException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
 import com.loqiu.moneykeeper.exception.ResourceNotFoundException;
 import com.loqiu.moneykeeper.service.CategoryService;
+import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.RecordSearchService;
 import com.loqiu.moneykeeper.util.RequestAuthUtil;
 import com.loqiu.moneykeeper.vo.CategoryRequest;
@@ -31,6 +32,9 @@ public class CategoryController {
     private CategoryService categoryService;
 
     @Autowired
+    private LedgerService ledgerService;
+
+    @Autowired
     private RecordSearchService recordSearchService;
 
     @PostMapping("/{id}")
@@ -43,6 +47,7 @@ public class CategoryController {
 
         Category category = new Category();
         category.setUserId(id);
+        category.setLedgerId(ledgerService.getOrCreatePersonalLedger(id).getId());
         category.setName(categoryRequest.getName().trim());
         category.setIcon(categoryRequest.getIcon().trim());
         category.setColor(categoryRequest.getColor().trim());
@@ -98,6 +103,7 @@ public class CategoryController {
         Category updatedCategory = new Category();
         updatedCategory.setId(existingCategory.getId());
         updatedCategory.setUserId(existingCategory.getUserId());
+        updatedCategory.setLedgerId(existingCategory.getLedgerId());
         updatedCategory.setName(resolveString(categoryRequest.getName(), existingCategory.getName()));
         updatedCategory.setIcon(resolveString(categoryRequest.getIcon(), existingCategory.getIcon()));
         updatedCategory.setColor(resolveString(categoryRequest.getColor(), existingCategory.getColor()));

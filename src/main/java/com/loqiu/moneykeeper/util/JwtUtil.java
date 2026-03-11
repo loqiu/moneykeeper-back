@@ -4,8 +4,8 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.loqiu.moneykeeper.config.JwtProperties;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -15,8 +15,8 @@ public class JwtUtil {
     @Autowired
     private RedisTokenUtil redisTokenUtil;
 
-    @Value("${JWT.SECERT}")
-    private String secret;
+    @Autowired
+    private JwtProperties jwtProperties;
 
     private static final long EXPIRATION_TIME = 24 * 60 * 60 * 1000;
 
@@ -29,14 +29,14 @@ public class JwtUtil {
                 .withClaim("role", resolvedRole)
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
-                .sign(Algorithm.HMAC256(secret));
+                .sign(Algorithm.HMAC256(jwtProperties.getSecret()));
 
         redisTokenUtil.saveToken(userPin, token);
         return token;
     }
 
     public DecodedJWT verifyToken(String token) throws JWTVerificationException {
-        DecodedJWT jwt = JWT.require(Algorithm.HMAC256(secret))
+        DecodedJWT jwt = JWT.require(Algorithm.HMAC256(jwtProperties.getSecret()))
                 .build()
                 .verify(token);
 

@@ -1,0 +1,109 @@
+name: moneykeeper-platform
+
+services:
+  moneykeeper-platform:
+    image: rochelle98/moneykeeper-back:${MONEYKEEPER_IMAGE_TAG:-platform}
+    container_name: moneykeeper-platform
+    restart: unless-stopped
+    depends_on:
+      moneykeeper-platform-mysql:
+        condition: service_healthy
+      moneykeeper-platform-redis:
+        condition: service_healthy
+      moneykeeper-platform-elasticsearch:
+        condition: service_started
+    ports:
+      - "${MONEYKEEPER_APP_PORT:-8082}:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: 8081
+      TZ: ${TZ:-Europe/London}
+      MONEYKEEPER_DB_URL: jdbc:mysql://moneykeeper-platform-mysql:3306/${MONEYKEEPER_DB_NAME:-moneykeeper_platform}?useUnicode=true&characterEncoding=utf8&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      MONEYKEEPER_DB_USERNAME: ${MONEYKEEPER_DB_USERNAME:-moneykeeper}
+      MONEYKEEPER_DB_PASSWORD: ${MONEYKEEPER_DB_PASSWORD}
+      MONEYKEEPER_REDIS_HOST: moneykeeper-platform-redis
+      MONEYKEEPER_REDIS_PORT: 6379
+      MONEYKEEPER_REDIS_PASSWORD: ${MONEYKEEPER_REDIS_PASSWORD:-}
+      MONEYKEEPER_JWT_SECRET: ${MONEYKEEPER_JWT_SECRET}
+      MONEYKEEPER_ELASTICSEARCH_ENABLED: "true"
+      MONEYKEEPER_ELASTICSEARCH_HOST: moneykeeper-platform-elasticsearch
+      MONEYKEEPER_ELASTICSEARCH_PORT: 9200
+      MONEYKEEPER_ELASTICSEARCH_INDEX_NAME: ${MONEYKEEPER_ELASTICSEARCH_INDEX_NAME:-moneykeeper-records-platform}
+      MONEYKEEPER_KAFKA_ENABLED: "false"
+      MONEYKEEPER_NACOS_DISCOVERY_ENABLED: "false"
+      MONEYKEEPER_NACOS_CONFIG_ENABLED: "false"
+      MONEYKEEPER_DUBBO_ENABLED: "false"
+      MONEYKEEPER_PAYMENT_ENABLED: "false"
+    networks:
+      - moneykeeper-platform-net
+
+  moneykeeper-platform-mysql:
+    image: mysql:8.0
+    container_name: moneykeeper-platform-mysql
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      TZ: ${TZ:-Europe/London}
+      MYSQL_DATABASE: ${MONEYKEEPER_DB_NAME:-moneykeeper_platform}
+      MYSQL_USER: ${MONEYKEEPER_DB_USERNAME:-moneykeeper}
+      MYSQL_PASSWORD: ${MONEYKEEPER_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MONEYKEEPER_DB_ROOT_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    ports:
+      - "127.0.0.1:${MONEYKEEPER_DB_HOST_PORT:-3307}:3306"
+    volumes:
+      - moneykeeper-platform-mysql-data:/var/lib/mysql
+    networks:
+      - moneykeeper-platform-net
+
+  moneykeeper-platform-redis:
+    image: redis:7-alpine
+    container_name: moneykeeper-platform-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "127.0.0.1:${MONEYKEEPER_REDIS_HOST_PORT:-6380}:6379"
+    volumes:
+      - moneykeeper-platform-redis-data:/data
+    networks:
+      - moneykeeper-platform-net
+
+  moneykeeper-platform-elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    container_name: moneykeeper-platform-elasticsearch
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/London}
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.security.http.ssl.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "127.0.0.1:${MONEYKEEPER_ELASTICSEARCH_HOST_PORT:-9201}:9200"
+    volumes:
+      - moneykeeper-platform-elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - moneykeeper-platform-net
+
+networks:
+  moneykeeper-platform-net:
+    driver: bridge
+
+volumes:
+  moneykeeper-platform-mysql-data:
+  moneykeeper-platform-redis-data:
+  moneykeeper-platform-elasticsearch-data:

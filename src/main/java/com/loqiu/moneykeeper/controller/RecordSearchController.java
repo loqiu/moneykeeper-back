@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -70,6 +71,19 @@ public class RecordSearchController {
         return ResponseEntity.ok(recordSearchService.reindexRecords(userId));
     }
 
+    @PostMapping("/reindex/ledger")
+    public ResponseEntity<RecordSearchReindexResultDTO> reindexLedgerRecords(@RequestParam Long ledgerId,
+                                                                             HttpServletRequest request) {
+        requireAdmin(request);
+        if (ledgerId == null) {
+            throw new BadRequestException("Ledger id is required");
+        }
+        logger.info("Reindexing record search index for ledger - ledgerId: {}, requestedBy: {}",
+                ledgerId,
+                RequestAuthUtil.getCurrentUserId(request));
+        return ResponseEntity.ok(recordSearchService.reindexLedgerRecords(ledgerId));
+    }
+
     @GetMapping("/stats")
     public ResponseEntity<RecordSearchIndexStatsDTO> getIndexStats(@RequestParam(required = false) Long userId,
                                                                    HttpServletRequest request) {
@@ -78,6 +92,19 @@ public class RecordSearchController {
                 userId == null ? "all" : "user=" + userId,
                 RequestAuthUtil.getCurrentUserId(request));
         return ResponseEntity.ok(recordSearchService.getIndexStats(userId));
+    }
+
+    @GetMapping("/stats/ledger")
+    public ResponseEntity<RecordSearchIndexStatsDTO> getLedgerIndexStats(@RequestParam Long ledgerId,
+                                                                         HttpServletRequest request) {
+        requireAdmin(request);
+        if (ledgerId == null) {
+            throw new BadRequestException("Ledger id is required");
+        }
+        logger.info("Getting record search index stats for ledger - ledgerId: {}, requestedBy: {}",
+                ledgerId,
+                RequestAuthUtil.getCurrentUserId(request));
+        return ResponseEntity.ok(recordSearchService.getLedgerIndexStats(ledgerId));
     }
 
     private Long resolveTargetUserId(HttpServletRequest request, Long requestedUserId) {

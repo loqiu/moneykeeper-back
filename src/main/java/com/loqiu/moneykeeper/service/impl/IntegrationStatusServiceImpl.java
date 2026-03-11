@@ -1,6 +1,10 @@
 package com.loqiu.moneykeeper.service.impl;
 
+import com.loqiu.moneykeeper.config.DubboModuleProperties;
 import com.loqiu.moneykeeper.config.ElasticsearchProperties;
+import com.loqiu.moneykeeper.config.KafkaFeatureProperties;
+import com.loqiu.moneykeeper.config.NacosConfigProperties;
+import com.loqiu.moneykeeper.config.NacosDiscoveryProperties;
 import com.loqiu.moneykeeper.config.PaymentProperties;
 import com.loqiu.moneykeeper.dto.IntegrationModuleStatusDTO;
 import com.loqiu.moneykeeper.service.IntegrationStatusService;
@@ -10,7 +14,6 @@ import com.loqiu.moneykeeper.service.PaymentStripeService;
 import com.loqiu.moneykeeper.service.RecordSearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
@@ -21,10 +24,19 @@ import java.util.Map;
 public class IntegrationStatusServiceImpl implements IntegrationStatusService {
 
     @Autowired
-    private Environment environment;
+    private ApplicationContext applicationContext;
 
     @Autowired
-    private ApplicationContext applicationContext;
+    private KafkaFeatureProperties kafkaFeatureProperties;
+
+    @Autowired
+    private DubboModuleProperties dubboModuleProperties;
+
+    @Autowired
+    private NacosDiscoveryProperties nacosDiscoveryProperties;
+
+    @Autowired
+    private NacosConfigProperties nacosConfigProperties;
 
     @Autowired
     private KafkaProducerService kafkaProducerService;
@@ -70,7 +82,7 @@ public class IntegrationStatusServiceImpl implements IntegrationStatusService {
     }
 
     private IntegrationModuleStatusDTO buildKafkaStatus() {
-        boolean enabled = environment.getProperty("app.kafka.enabled", Boolean.class, false);
+        boolean enabled = kafkaFeatureProperties.isEnabled();
         return IntegrationModuleStatusDTO.builder()
                 .module("kafka")
                 .enabled(enabled)
@@ -80,7 +92,9 @@ public class IntegrationStatusServiceImpl implements IntegrationStatusService {
                 .metadata(Map.of(
                         "producerReady", kafkaProducerService.isEnabled(),
                         "consumerReady", kafkaConsumerService.isEnabled(),
-                        "consumedCount", kafkaConsumerService.getConsumedCount()
+                        "consumedCount", kafkaConsumerService.getConsumedCount(),
+                        "bootstrapServers", kafkaFeatureProperties.getBootstrapServers(),
+                        "consumerGroupId", kafkaFeatureProperties.getConsumerGroupId()
                 ))
                 .build();
     }
@@ -129,7 +143,7 @@ public class IntegrationStatusServiceImpl implements IntegrationStatusService {
     }
 
     private IntegrationModuleStatusDTO buildDubboStatus() {
-        boolean enabled = environment.getProperty("app.dubbo.enabled", Boolean.class, false);
+        boolean enabled = dubboModuleProperties.isEnabled();
         boolean ready = applicationContext.getBeanNamesForType(com.loqiu.moneykeeper.config.DubboFeatureConfig.class).length > 0;
         return IntegrationModuleStatusDTO.builder()
                 .module("dubbo")
@@ -138,14 +152,14 @@ public class IntegrationStatusServiceImpl implements IntegrationStatusService {
                 .implemented(false)
                 .summary(enabled ? "Dubbo infrastructure is enabled; RPC service contracts are not implemented yet" : "Dubbo module is disabled via app.dubbo.enabled")
                 .metadata(Map.of(
-                        "applicationName", environment.getProperty("dubbo.application.name", "moneykeeper-back"),
-                        "registryAddress", environment.getProperty("dubbo.registry.address", "n/a")
+                        "applicationName", dubboModuleProperties.getApplicationName(),
+                        "registryAddress", dubboModuleProperties.getRegistryAddress()
                 ))
                 .build();
     }
 
     private IntegrationModuleStatusDTO buildNacosDiscoveryStatus() {
-        boolean enabled = environment.getProperty("spring.cloud.nacos.discovery.enabled", Boolean.class, false);
+        boolean enabled = nacosDiscoveryProperties.isEnabled();
         boolean ready = applicationContext.getBeanNamesForType(com.loqiu.moneykeeper.config.NacosDiscoveryFeatureConfig.class).length > 0;
         return IntegrationModuleStatusDTO.builder()
                 .module("nacos-discovery")
@@ -154,13 +168,13 @@ public class IntegrationStatusServiceImpl implements IntegrationStatusService {
                 .implemented(false)
                 .summary(enabled ? "Nacos discovery integration is enabled" : "Nacos discovery is disabled")
                 .metadata(Map.of(
-                        "serverAddr", environment.getProperty("spring.cloud.nacos.discovery.server-addr", "n/a")
+                        "serverAddr", nacosDiscoveryProperties.getServerAddr()
                 ))
                 .build();
     }
 
     private IntegrationModuleStatusDTO buildNacosConfigStatus() {
-        boolean enabled = environment.getProperty("spring.cloud.nacos.config.enabled", Boolean.class, false);
+        boolean enabled = nacosConfigProperties.isEnabled();
         return IntegrationModuleStatusDTO.builder()
                 .module("nacos-config")
                 .enabled(enabled)
@@ -168,7 +182,7 @@ public class IntegrationStatusServiceImpl implements IntegrationStatusService {
                 .implemented(false)
                 .summary(enabled ? "Nacos config integration is enabled" : "Nacos config is disabled")
                 .metadata(Map.of(
-                        "serverAddr", environment.getProperty("spring.cloud.nacos.config.server-addr", "n/a")
+                        "serverAddr", nacosConfigProperties.getServerAddr()
                 ))
                 .build();
     }

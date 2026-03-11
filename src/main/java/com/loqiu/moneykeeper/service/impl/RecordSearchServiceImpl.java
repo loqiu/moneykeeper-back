@@ -7,7 +7,6 @@ import co.elastic.clients.elasticsearch.core.CountResponse;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.json.JsonData;
-import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.loqiu.moneykeeper.config.ElasticsearchProperties;
 import com.loqiu.moneykeeper.dto.MoneyKeeperDTO;
@@ -23,7 +22,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -47,17 +45,14 @@ public class RecordSearchServiceImpl implements RecordSearchService {
     @Autowired
     private ObjectProvider<ElasticsearchClient> elasticsearchClientProvider;
 
-    @Value("${app.elasticsearch.enabled:false}")
-    private boolean elasticsearchEnabled;
-
     @Override
     public boolean isEnabled() {
-        return elasticsearchEnabled;
+        return elasticsearchProperties.isEnabled();
     }
 
     @Override
     public boolean isReady() {
-        return elasticsearchEnabled && elasticsearchClientProvider.getIfAvailable() != null;
+        return elasticsearchProperties.isEnabled() && elasticsearchClientProvider.getIfAvailable() != null;
     }
 
     @Override
@@ -74,29 +69,20 @@ public class RecordSearchServiceImpl implements RecordSearchService {
                                                      LocalDate startDate,
                                                      LocalDate endDate,
                                                      int limit) {
-        ElasticsearchClient client = requireClient();
-        try {
-            ensureIndex(client);
-            String queryText = normalizeText(query);
-            SearchResponse<RecordSearchDocument> response = client.search(search -> {
-                search.index(getIndexName())
-                        .size(limit)
-                        .query(q -> q.bool(buildQuery(userId, queryText, type, categoryId, categoryName, startDate, endDate)));
-                if (StringUtils.hasText(queryText)) {
-                    search.sort(sort -> sort.score(score -> score.order(SortOrder.Desc)));
-                }
-                search.sort(sort -> sort.field(field -> field.field("transactionDate").order(SortOrder.Desc)));
-                return search.sort(sort -> sort.field(field -> field.field("updatedAt").order(SortOrder.Desc)));
-            }, RecordSearchDocument.class);
+        return searchRecordsByScope(null, userId, query, type, categoryId, categoryName, startDate, endDate, limit);
+    }
 
-            return response.hits().hits().stream()
-                    .map(this::toSearchResult)
-                    .filter(Objects::nonNull)
-                    .toList();
-        } catch (IOException ex) {
-            logger.error("Failed to search records in Elasticsearch - userId: {}", userId, ex);
-            throw new ServiceUnavailableException("Elasticsearch search is temporarily unavailable");
-        }
+    @Override
+    public List<RecordSearchResultDTO> searchLedgerRecords(Long ledgerId,
+                                                           Long userId,
+                                                           String query,
+                                                           String type,
+                                                           Long categoryId,
+                                                           String categoryName,
+                                                           LocalDate startDate,
+                                                           LocalDate endDate,
+                                                           int limit) {
+        return searchRecordsByScope(ledgerId, userId, query, type, categoryId, categoryName, startDate, endDate, limit);
     }
 
     @Override
@@ -118,6 +104,7 @@ public class RecordSearchServiceImpl implements RecordSearchService {
             return RecordSearchReindexResultDTO.builder()
                     .scope(userId == null ? "all" : "user")
                     .userId(userId)
+                    .ledgerId(null)
                     .indexedCount(indexedCount)
                     .indexName(getIndexName())
                     .reindexedAt(LocalDateTime.now())
@@ -129,15 +116,41 @@ public class RecordSearchServiceImpl implements RecordSearchService {
     }
 
     @Override
+    public RecordSearchReindexResultDTO reindexLedgerRecords(Long ledgerId) {
+        ElasticsearchClient client = requireClient();
+        try {
+            ensureIndex(client);
+            deleteLedgerDocuments(client, ledgerId);
+
+            List<MoneyKeeperDTO> records = moneyKeeperMapper.getLedgerRecordsWithCategoryName(ledgerId, null, null, null);
+            int indexedCount = indexRecords(client, records);
+            logger.info("Record search ledger reindex completed - ledgerId: {}, count: {}", ledgerId, indexedCount);
+
+            return RecordSearchReindexResultDTO.builder()
+                    .scope("ledger")
+                    .userId(null)
+                    .ledgerId(ledgerId)
+                    .indexedCount(indexedCount)
+                    .indexName(getIndexName())
+                    .reindexedAt(LocalDateTime.now())
+                    .build();
+        } catch (IOException ex) {
+            logger.error("Failed to reindex ledger records in Elasticsearch - ledgerId: {}", ledgerId, ex);
+            throw new ServiceUnavailableException("Elasticsearch reindex is temporarily unavailable");
+        }
+    }
+
+    @Override
     public RecordSearchIndexStatsDTO getIndexStats(Long userId) {
         ElasticsearchClient client = requireClient();
         try {
             boolean indexExists = client.indices().exists(request -> request.index(getIndexName())).value();
-            long indexedDocumentCount = indexExists ? countIndexedDocuments(client, userId) : 0L;
-            long databaseRecordCount = countDatabaseRecords(userId);
+            long indexedDocumentCount = indexExists ? countIndexedDocuments(client, userId, null) : 0L;
+            long databaseRecordCount = countDatabaseRecords(userId, null);
             return RecordSearchIndexStatsDTO.builder()
                     .scope(userId == null ? "all" : "user")
                     .userId(userId)
+                    .ledgerId(null)
                     .enabled(isEnabled())
                     .ready(isReady())
                     .indexName(getIndexName())
@@ -148,6 +161,31 @@ public class RecordSearchServiceImpl implements RecordSearchService {
                     .build();
         } catch (IOException ex) {
             logger.error("Failed to load record search index stats - userId: {}", userId, ex);
+            throw new ServiceUnavailableException("Elasticsearch index stats are temporarily unavailable");
+        }
+    }
+
+    @Override
+    public RecordSearchIndexStatsDTO getLedgerIndexStats(Long ledgerId) {
+        ElasticsearchClient client = requireClient();
+        try {
+            boolean indexExists = client.indices().exists(request -> request.index(getIndexName())).value();
+            long indexedDocumentCount = indexExists ? countIndexedDocuments(client, null, ledgerId) : 0L;
+            long databaseRecordCount = countDatabaseRecords(null, ledgerId);
+            return RecordSearchIndexStatsDTO.builder()
+                    .scope("ledger")
+                    .userId(null)
+                    .ledgerId(ledgerId)
+                    .enabled(isEnabled())
+                    .ready(isReady())
+                    .indexName(getIndexName())
+                    .indexExists(indexExists)
+                    .indexedDocumentCount(indexedDocumentCount)
+                    .databaseRecordCount(databaseRecordCount)
+                    .statsCollectedAt(LocalDateTime.now())
+                    .build();
+        } catch (IOException ex) {
+            logger.error("Failed to load record search index stats - ledgerId: {}", ledgerId, ex);
             throw new ServiceUnavailableException("Elasticsearch index stats are temporarily unavailable");
         }
     }
@@ -208,8 +246,42 @@ public class RecordSearchServiceImpl implements RecordSearchService {
         }
     }
 
+    private List<RecordSearchResultDTO> searchRecordsByScope(Long ledgerId,
+                                                             Long userId,
+                                                             String query,
+                                                             String type,
+                                                             Long categoryId,
+                                                             String categoryName,
+                                                             LocalDate startDate,
+                                                             LocalDate endDate,
+                                                             int limit) {
+        ElasticsearchClient client = requireClient();
+        try {
+            ensureIndex(client);
+            String queryText = normalizeText(query);
+            SearchResponse<RecordSearchDocument> response = client.search(search -> {
+                search.index(getIndexName())
+                        .size(limit)
+                        .query(q -> q.bool(buildQuery(ledgerId, userId, queryText, type, categoryId, categoryName, startDate, endDate)));
+                if (StringUtils.hasText(queryText)) {
+                    search.sort(sort -> sort.score(score -> score.order(SortOrder.Desc)));
+                }
+                search.sort(sort -> sort.field(field -> field.field("transactionDate").order(SortOrder.Desc)));
+                return search.sort(sort -> sort.field(field -> field.field("updatedAt").order(SortOrder.Desc)));
+            }, RecordSearchDocument.class);
+
+            return response.hits().hits().stream()
+                    .map(this::toSearchResult)
+                    .filter(Objects::nonNull)
+                    .toList();
+        } catch (IOException ex) {
+            logger.error("Failed to search records in Elasticsearch - ledgerId: {}, userId: {}", ledgerId, userId, ex);
+            throw new ServiceUnavailableException("Elasticsearch search is temporarily unavailable");
+        }
+    }
+
     private ElasticsearchClient requireClient() {
-        if (!elasticsearchEnabled) {
+        if (!elasticsearchProperties.isEnabled()) {
             throw new ServiceUnavailableException("Elasticsearch search module is disabled");
         }
         ElasticsearchClient client = elasticsearchClientProvider.getIfAvailable();
@@ -240,6 +312,12 @@ public class RecordSearchServiceImpl implements RecordSearchService {
         client.deleteByQuery(request -> request
                 .index(getIndexName())
                 .query(q -> q.term(t -> t.field("userId").value(userId))));
+    }
+
+    private void deleteLedgerDocuments(ElasticsearchClient client, Long ledgerId) throws IOException {
+        client.deleteByQuery(request -> request
+                .index(getIndexName())
+                .query(q -> q.term(t -> t.field("ledgerId").value(ledgerId))));
     }
 
     private void deleteCategoryDocuments(ElasticsearchClient client, Long categoryId) throws IOException {
@@ -288,28 +366,36 @@ public class RecordSearchServiceImpl implements RecordSearchService {
                 .document(toDocument(record)));
     }
 
-    private long countIndexedDocuments(ElasticsearchClient client, Long userId) throws IOException {
+    private long countIndexedDocuments(ElasticsearchClient client, Long userId, Long ledgerId) throws IOException {
         CountResponse response;
-        if (userId == null) {
+        if (userId == null && ledgerId == null) {
             response = client.count(request -> request.index(getIndexName()));
-        } else {
+        } else if (userId != null) {
             response = client.count(request -> request
                     .index(getIndexName())
                     .query(q -> q.term(t -> t.field("userId").value(userId))));
+        } else {
+            response = client.count(request -> request
+                    .index(getIndexName())
+                    .query(q -> q.term(t -> t.field("ledgerId").value(ledgerId))));
         }
         return response.count();
     }
 
-    private long countDatabaseRecords(Long userId) {
+    private long countDatabaseRecords(Long userId, Long ledgerId) {
         QueryWrapper<MoneyKeeper> queryWrapper = new QueryWrapper<>();
         if (userId != null) {
             queryWrapper.eq("user_id", userId);
+        }
+        if (ledgerId != null) {
+            queryWrapper.eq("ledger_id", ledgerId);
         }
         Long count = moneyKeeperMapper.selectCount(queryWrapper);
         return count == null ? 0L : count;
     }
 
-    private BoolQuery buildQuery(Long userId,
+    private BoolQuery buildQuery(Long ledgerId,
+                                 Long userId,
                                  String query,
                                  String type,
                                  Long categoryId,
@@ -317,8 +403,12 @@ public class RecordSearchServiceImpl implements RecordSearchService {
                                  LocalDate startDate,
                                  LocalDate endDate) {
         BoolQuery.Builder boolQuery = new BoolQuery.Builder();
-        boolQuery.filter(filter -> filter.term(term -> term.field("userId").value(userId)));
-
+        if (ledgerId != null) {
+            boolQuery.filter(filter -> filter.term(term -> term.field("ledgerId").value(ledgerId)));
+        }
+        if (userId != null) {
+            boolQuery.filter(filter -> filter.term(term -> term.field("userId").value(userId)));
+        }
         if (categoryId != null) {
             boolQuery.filter(filter -> filter.term(term -> term.field("categoryId").value(categoryId)));
         }
@@ -351,6 +441,7 @@ public class RecordSearchServiceImpl implements RecordSearchService {
     private RecordSearchDocument toDocument(MoneyKeeperDTO record) {
         return RecordSearchDocument.builder()
                 .recordId(record.getId())
+                .ledgerId(record.getLedgerId())
                 .userId(record.getUserId())
                 .categoryId(record.getCategoryId())
                 .categoryName(record.getCategoryName())
@@ -377,6 +468,7 @@ public class RecordSearchServiceImpl implements RecordSearchService {
         }
         return RecordSearchResultDTO.builder()
                 .id(recordId)
+                .ledgerId(document.getLedgerId())
                 .userId(document.getUserId())
                 .categoryId(document.getCategoryId())
                 .categoryName(document.getCategoryName())

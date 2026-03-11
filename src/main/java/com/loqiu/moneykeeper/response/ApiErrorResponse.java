@@ -7,6 +7,7 @@ public record ApiErrorResponse(
         String error,
         String message,
         String path,
-        LocalDateTime timestamp
+        LocalDateTime timestamp,
+        String traceId
 ) {
 }

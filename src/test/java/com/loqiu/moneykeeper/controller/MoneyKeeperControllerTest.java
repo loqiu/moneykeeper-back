@@ -1,9 +1,9 @@
 package com.loqiu.moneykeeper.controller;
 
 import com.loqiu.moneykeeper.entity.Category;
-import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.exception.GlobalExceptionHandler;
 import com.loqiu.moneykeeper.service.CategoryService;
+import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
 import com.loqiu.moneykeeper.service.RecordSearchService;
 import com.loqiu.moneykeeper.util.RequestAuthUtil;
@@ -41,6 +41,9 @@ class MoneyKeeperControllerTest {
     private CategoryService categoryService;
 
     @Mock
+    private LedgerService ledgerService;
+
+    @Mock
     private RecordSearchService recordSearchService;
 
     private MockMvc mockMvc;
@@ -50,6 +53,7 @@ class MoneyKeeperControllerTest {
         MoneyKeeperController controller = new MoneyKeeperController();
         ReflectionTestUtils.setField(controller, "moneyKeeperService", moneyKeeperService);
         ReflectionTestUtils.setField(controller, "categoryService", categoryService);
+        ReflectionTestUtils.setField(controller, "ledgerService", ledgerService);
         ReflectionTestUtils.setField(controller, "recordSearchService", recordSearchService);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
@@ -61,11 +65,12 @@ class MoneyKeeperControllerTest {
         Category category = new Category();
         category.setId(5L);
         category.setUserId(1L);
+        category.setLedgerId(21L);
         category.setType("expense");
 
         when(categoryService.getById(5L)).thenReturn(category);
-        when(moneyKeeperService.insertMoneyKeeper(any(MoneyKeeper.class))).thenAnswer(invocation -> {
-            MoneyKeeper record = invocation.getArgument(0);
+        when(moneyKeeperService.insertMoneyKeeper(any(com.loqiu.moneykeeper.entity.MoneyKeeper.class))).thenAnswer(invocation -> {
+            com.loqiu.moneykeeper.entity.MoneyKeeper record = invocation.getArgument(0);
             record.setId(10L);
             return true;
         });
@@ -87,12 +92,14 @@ class MoneyKeeperControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(10))
                 .andExpect(jsonPath("$.userId").value(1))
+                .andExpect(jsonPath("$.ledgerId").value(21))
                 .andExpect(jsonPath("$.categoryId").value(5))
                 .andExpect(jsonPath("$.type").value("expense"));
 
-        ArgumentCaptor<MoneyKeeper> captor = ArgumentCaptor.forClass(MoneyKeeper.class);
+        ArgumentCaptor<com.loqiu.moneykeeper.entity.MoneyKeeper> captor = ArgumentCaptor.forClass(com.loqiu.moneykeeper.entity.MoneyKeeper.class);
         verify(moneyKeeperService).insertMoneyKeeper(captor.capture());
         assertEquals(1L, captor.getValue().getUserId());
+        assertEquals(21L, captor.getValue().getLedgerId());
         verify(recordSearchService).syncRecordIfEnabled(10L);
     }
 
@@ -101,6 +108,7 @@ class MoneyKeeperControllerTest {
         Category category = new Category();
         category.setId(5L);
         category.setUserId(1L);
+        category.setLedgerId(21L);
         category.setType("income");
 
         when(categoryService.getById(5L)).thenReturn(category);
@@ -124,18 +132,20 @@ class MoneyKeeperControllerTest {
 
     @Test
     void updateRecordShouldSyncOnlyThatRecord() throws Exception {
-        MoneyKeeper existingRecord = new MoneyKeeper();
+        com.loqiu.moneykeeper.entity.MoneyKeeper existingRecord = new com.loqiu.moneykeeper.entity.MoneyKeeper();
         existingRecord.setId(10L);
         existingRecord.setUserId(1L);
+        existingRecord.setLedgerId(21L);
         existingRecord.setCategoryId(5L);
         existingRecord.setType("expense");
         existingRecord.setAmount(new BigDecimal("88.50"));
         existingRecord.setTransactionDate(LocalDate.of(2026, 3, 8));
         existingRecord.setNotes("Lunch");
 
-        MoneyKeeper refreshedRecord = new MoneyKeeper();
+        com.loqiu.moneykeeper.entity.MoneyKeeper refreshedRecord = new com.loqiu.moneykeeper.entity.MoneyKeeper();
         refreshedRecord.setId(10L);
         refreshedRecord.setUserId(1L);
+        refreshedRecord.setLedgerId(21L);
         refreshedRecord.setCategoryId(5L);
         refreshedRecord.setType("expense");
         refreshedRecord.setAmount(new BigDecimal("99.00"));
@@ -145,11 +155,12 @@ class MoneyKeeperControllerTest {
         Category category = new Category();
         category.setId(5L);
         category.setUserId(1L);
+        category.setLedgerId(21L);
         category.setType("expense");
 
         when(moneyKeeperService.getById(10L)).thenReturn(existingRecord, refreshedRecord);
         when(categoryService.getById(5L)).thenReturn(category);
-        when(moneyKeeperService.updateById(any(MoneyKeeper.class))).thenReturn(true);
+        when(moneyKeeperService.updateById(any(com.loqiu.moneykeeper.entity.MoneyKeeper.class))).thenReturn(true);
 
         mockMvc.perform(put("/api/records/10")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -171,9 +182,10 @@ class MoneyKeeperControllerTest {
 
     @Test
     void deleteRecordShouldRemoveOnlyThatRecordFromIndex() throws Exception {
-        MoneyKeeper existingRecord = new MoneyKeeper();
+        com.loqiu.moneykeeper.entity.MoneyKeeper existingRecord = new com.loqiu.moneykeeper.entity.MoneyKeeper();
         existingRecord.setId(10L);
         existingRecord.setUserId(1L);
+        existingRecord.setLedgerId(21L);
         existingRecord.setCategoryId(5L);
         existingRecord.setType("expense");
         existingRecord.setAmount(new BigDecimal("88.50"));

@@ -1,5 +1,7 @@
 package com.loqiu.moneykeeper.exception;
 
+import com.loqiu.moneykeeper.common.TraceContext;
+import com.loqiu.moneykeeper.constant.TraceConstant;
 import com.loqiu.moneykeeper.response.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.LogManager;
@@ -35,6 +37,11 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiErrorResponse> handleConflict(ConflictException ex, HttpServletRequest request) {
+        return buildError(HttpStatus.CONFLICT, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(ServiceUnavailableException.class)
     public ResponseEntity<ApiErrorResponse> handleServiceUnavailable(ServiceUnavailableException ex,
                                                                      HttpServletRequest request) {
@@ -58,18 +65,31 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ApiErrorResponse> buildError(HttpStatus status, String message, HttpServletRequest request, Exception ex) {
+        String traceId = resolveTraceId(request);
         if (ex != null) {
-            logger.error("API request failed - status: {}, path: {}, message: {}", status.value(), request.getRequestURI(), message);
+            logger.error("API request failed - status: {}, path: {}, traceId: {}, message: {}",
+                    status.value(), request.getRequestURI(), traceId, message);
         } else {
-            logger.warn("API request rejected - status: {}, path: {}, message: {}", status.value(), request.getRequestURI(), message);
+            logger.warn("API request rejected - status: {}, path: {}, traceId: {}, message: {}",
+                    status.value(), request.getRequestURI(), traceId, message);
         }
         ApiErrorResponse body = new ApiErrorResponse(
                 status.value(),
                 status.getReasonPhrase(),
                 message,
                 request.getRequestURI(),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                traceId
         );
         return ResponseEntity.status(status).body(body);
+    }
+
+    private String resolveTraceId(HttpServletRequest request) {
+        String traceId = TraceContext.getTraceId();
+        if (traceId != null) {
+            return traceId;
+        }
+        Object requestTraceId = request.getAttribute(TraceConstant.TRACE_ID_ATTRIBUTE);
+        return requestTraceId == null ? null : requestTraceId.toString();
     }
 }

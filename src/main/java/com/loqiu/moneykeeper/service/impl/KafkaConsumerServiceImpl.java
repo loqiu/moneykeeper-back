@@ -1,12 +1,13 @@
 package com.loqiu.moneykeeper.service.impl;
 
+import com.loqiu.moneykeeper.config.KafkaFeatureProperties;
 import com.loqiu.moneykeeper.constant.KafkaTopicConstant;
 import com.loqiu.moneykeeper.dto.KafkaMessageRecord;
 import com.loqiu.moneykeeper.service.KafkaConsumerService;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -25,8 +26,8 @@ public class KafkaConsumerServiceImpl implements KafkaConsumerService {
     private final Deque<KafkaMessageRecord> recentMessages = new ConcurrentLinkedDeque<>();
     private final AtomicLong consumedCount = new AtomicLong(0);
 
-    @Value("${app.kafka.enabled:false}")
-    private boolean kafkaEnabled;
+    @Autowired
+    private KafkaFeatureProperties kafkaFeatureProperties;
 
     @KafkaListener(topics = KafkaTopicConstant.QUICKSTART_EVENTS, groupId = "${spring.kafka.consumer.group-id}")
     public void listen(ConsumerRecord<String, String> record) {
@@ -70,6 +71,6 @@ public class KafkaConsumerServiceImpl implements KafkaConsumerService {
 
     @Override
     public boolean isEnabled() {
-        return kafkaEnabled;
+        return kafkaFeatureProperties.isEnabled();
     }
 }

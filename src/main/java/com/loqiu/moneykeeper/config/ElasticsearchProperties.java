@@ -8,9 +8,10 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "app.elasticsearch")
 public class ElasticsearchProperties {
+    private boolean enabled = false;
     private String host = "localhost";
     private int port = 9200;
-    private String username;
-    private String password;
+    private String username = "";
+    private String password = "";
     private String indexName = "moneykeeper-records";
 }

@@ -10,6 +10,7 @@ import com.loqiu.moneykeeper.exception.BadRequestException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
 import com.loqiu.moneykeeper.exception.ResourceNotFoundException;
 import com.loqiu.moneykeeper.service.CategoryService;
+import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
 import com.loqiu.moneykeeper.service.RecordSearchService;
 import com.loqiu.moneykeeper.util.RequestAuthUtil;
@@ -46,6 +47,9 @@ public class MoneyKeeperController {
     private CategoryService categoryService;
 
     @Autowired
+    private LedgerService ledgerService;
+
+    @Autowired
     private RecordSearchService recordSearchService;
 
     @Operation(summary = "Create record")
@@ -61,6 +65,7 @@ public class MoneyKeeperController {
 
         MoneyKeeper record = new MoneyKeeper();
         record.setUserId(targetUserId);
+        record.setLedgerId(resolveLedgerId(category, targetUserId, null));
         record.setCategoryId(createRequest.getCategoryId());
         record.setType(createRequest.getType().trim());
         record.setAmount(createRequest.getAmount());
@@ -127,6 +132,7 @@ public class MoneyKeeperController {
         MoneyKeeper updatedRecord = new MoneyKeeper();
         updatedRecord.setId(existingRecord.getId());
         updatedRecord.setUserId(existingRecord.getUserId());
+        updatedRecord.setLedgerId(resolveLedgerId(category, existingRecord.getUserId(), existingRecord.getLedgerId()));
         updatedRecord.setCategoryId(categoryId);
         updatedRecord.setType(recordType);
         updatedRecord.setAmount(resolveAmount(updateRequest.getAmount(), existingRecord.getAmount()));
@@ -318,6 +324,16 @@ public class MoneyKeeperController {
         return currentUserId;
     }
 
+
+    private Long resolveLedgerId(Category category, Long userId, Long existingLedgerId) {
+        if (category != null && category.getLedgerId() != null) {
+            return category.getLedgerId();
+        }
+        if (existingLedgerId != null) {
+            return existingLedgerId;
+        }
+        return ledgerService.getOrCreatePersonalLedger(userId).getId();
+    }
     private void requireSelfOrAdmin(HttpServletRequest request, Long userId, String message) {
         if (userId == null) {
             throw new BadRequestException("User id is required");
@@ -373,3 +389,4 @@ public class MoneyKeeperController {
         return value.trim();
     }
 }
+

@@ -62,6 +62,14 @@ public class MoneyKeeperServiceImpl extends ServiceImpl<MoneyKeeperMapper, Money
     }
 
     @Override
+    public List<MoneyKeeperDTO> getAllLedgerRecordsWithCategoryName(Long ledgerId,
+                                                                     Long userId,
+                                                                     LocalDate startDate,
+                                                                     LocalDate endDate) {
+        return moneyKeeperMapper.getLedgerRecordsWithCategoryName(ledgerId, userId, startDate, endDate);
+    }
+
+    @Override
     public List<MoneyKeeperDTO> getAllRecordsByCategoryName(String categoryName, Long userId, LocalDate startDate, LocalDate endDate) {
         return moneyKeeperMapper.getAllRecordsByCategoryName(categoryName, userId, startDate, endDate);
     }

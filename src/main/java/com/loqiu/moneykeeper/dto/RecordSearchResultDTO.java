@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class RecordSearchResultDTO {
     private Long id;
+    private Long ledgerId;
     private Long userId;
     private Long categoryId;
     private String categoryName;

@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 public class RecordSearchIndexStatsDTO {
     private String scope;
     private Long userId;
+    private Long ledgerId;
     private boolean enabled;
     private boolean ready;
     private String indexName;
