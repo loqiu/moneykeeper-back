@@ -28,6 +28,10 @@ This folder contains the physical-host deployment files for the `codex/platform`
 
 These defaults intentionally avoid the existing production stack ports on the same host.
 
+## Important runtime note
+
+The platform stack explicitly disables Dubbo and Nacos at both the custom app-property layer and the underlying framework-property layer. This avoids `prod` profile defaults accidentally reconnecting to the host's existing Nacos registry.
+
 ## Start the stack
 
 ```bash
