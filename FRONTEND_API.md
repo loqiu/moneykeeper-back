@@ -1233,3 +1233,15 @@ POST /api/payments/checkout-sessions
 - 但请求体 JSON 格式错误时，会直接返回 `400 + ApiErrorResponse`
 
 前端请不要只按一种 JSON 结构写死解析。
+### 15.4 生产环境域名建议
+
+当前推荐的生产环境访问方式：
+
+- REST API：`https://api.money-keeper.com/api`
+- SSE：`https://money-keeper.com/api/notifications/subscribe/{userId}`
+
+说明：
+
+- 普通 REST 请求走 `api` 子域名直连。
+- SSE 保持走主域名同域 `/api` 反代，继续使用支持自定义请求头的 SSE client，并携带 `Authorization: Bearer <token>`。
+- 如果生产环境主域名代理 SSE，请确保该链路支持流式转发，且不要缓存、不要缓冲响应。

@@ -18,13 +18,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/notifications")
-@CrossOrigin(
-        originPatterns = {"*"},
-        allowCredentials = "true",
-        allowedHeaders = "*",
-        exposedHeaders = "*",
-        maxAge = 3600
-)
 public class NotificationController {
 
     private static final Logger logger = LogManager.getLogger(NotificationController.class);
