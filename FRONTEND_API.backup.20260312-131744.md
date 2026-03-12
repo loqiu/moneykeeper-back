@@ -1462,10 +1462,9 @@ POST /api/payments/checkout-sessions
 - 邀请与接受邀请
 - 账本维度分类管理
 - 账本维度记录管理与汇总
-
-当前仍未覆盖：
-
 - 账本维度搜索索引
+- 账本维度周期统计
+- 账本维度预算与阈值提醒
 - 账本维度导出任务
 
 前端注意：
@@ -1856,7 +1855,135 @@ POST /api/payments/checkout-sessions
 }
 ```
 
-### 16.20 账本记录搜索
+### 16.20 账本周期统计
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/statistics?period=month&anchorDate=2026-03-12&userId=2`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+查询参数：
+
+- `period`：可选；`week` / `month` / `year`，默认 `month`
+- `anchorDate`：可选；统计锚点日期，默认今天
+- `userId`：可选；按账本成员过滤
+
+返回：`LedgerStatisticsDTO`
+
+主要字段：
+
+- `ledgerId`
+- `userId`：如果当前查询没有按成员过滤，则为 `null`
+- `period`
+- `bucketGranularity`：`day` / `month`
+- `anchorDate`
+- `startDate`
+- `endDate`
+- `previousStartDate`
+- `previousEndDate`
+- `totalIncome`
+- `totalExpense`
+- `balance`
+- `recordCount`
+- `incomeRecordCount`
+- `expenseRecordCount`
+- `incomeDelta`
+- `expenseDelta`
+- `balanceDelta`
+- `incomeChangePercentage`
+- `expenseChangePercentage`
+- `balanceChangePercentage`
+- `buckets`
+- `expenseCategories`
+- `incomeCategories`
+
+`buckets` 元素字段：
+
+- `bucketKey`
+- `label`
+- `startDate`
+- `endDate`
+- `totalIncome`
+- `totalExpense`
+- `balance`
+- `recordCount`
+
+`expenseCategories` / `incomeCategories` 元素字段：
+
+- `categoryId`
+- `categoryName`
+- `type`
+- `totalAmount`
+- `percentage`
+- `recordCount`
+
+说明：
+
+- `week` / `month` 会按天分桶，`year` 会按月分桶
+- `incomeChangePercentage` / `expenseChangePercentage` / `balanceChangePercentage` 在上一周期为 `0` 且当前周期非 `0` 时会返回 `null`
+- 如果传了 `userId`，该用户必须是当前账本的有效成员
+
+示例返回：
+
+```json
+{
+  "ledgerId": 31,
+  "userId": 2,
+  "period": "month",
+  "bucketGranularity": "day",
+  "anchorDate": "2026-03-12",
+  "startDate": "2026-03-01",
+  "endDate": "2026-03-31",
+  "previousStartDate": "2026-02-01",
+  "previousEndDate": "2026-02-28",
+  "totalIncome": 200,
+  "totalExpense": 60,
+  "balance": 140,
+  "recordCount": 4,
+  "incomeRecordCount": 1,
+  "expenseRecordCount": 3,
+  "incomeDelta": 50,
+  "expenseDelta": 45,
+  "balanceDelta": 5,
+  "incomeChangePercentage": 33.33,
+  "expenseChangePercentage": 300.0,
+  "balanceChangePercentage": 3.7,
+  "buckets": [
+    {
+      "bucketKey": "2026-03-10",
+      "label": "03-10",
+      "startDate": "2026-03-10",
+      "endDate": "2026-03-10",
+      "totalIncome": 200,
+      "totalExpense": 10,
+      "balance": 190,
+      "recordCount": 2
+    }
+  ],
+  "expenseCategories": [
+    {
+      "categoryId": 9,
+      "categoryName": "Coffee",
+      "type": "expense",
+      "totalAmount": 40,
+      "percentage": 66.67,
+      "recordCount": 2
+    }
+  ],
+  "incomeCategories": [
+    {
+      "categoryId": 10,
+      "categoryName": "Salary",
+      "type": "income",
+      "totalAmount": 200,
+      "percentage": 100,
+      "recordCount": 1
+    }
+  ]
+}
+```
+
+### 16.21 账本记录搜索
 
 - Method：`GET`
 - URL：`/api/ledgers/{ledgerId}/search/records?userId=2&query=lunch&type=expense&startDate=2026-03-01&endDate=2026-03-31`
@@ -1893,7 +2020,7 @@ POST /api/payments/checkout-sessions
 - 账本记录正常写入后会自动同步搜索索引，通常不需要前端额外触发重建
 - 只有老环境历史数据补齐或索引异常修复时，才需要管理员调用重建接口
 
-### 16.21 导出账本记录 Excel
+### 16.22 导出账本记录 Excel
 
 - Method：`GET`
 - URL：`/api/excel/ledgers/{ledgerId}/download?userId=2&type=expense&startDate=2026-03-01&endDate=2026-03-31`
@@ -1916,7 +2043,7 @@ POST /api/payments/checkout-sessions
 - `400`：日期范围非法
 - `403`：无权限
 - `404`：账本不存在
-### 16.22 账本预算列表
+### 16.23 账本预算列表
 
 - Method：`GET`
 - URL：`/api/ledgers/{ledgerId}/budgets?year=2026&month=3&type=expense&categoryId=8`
@@ -1966,7 +2093,7 @@ POST /api/payments/checkout-sessions
 - 当前预算基础层只支持“月度预算”
 - 列表和详情都会直接返回预算进度与阈值规则，无需额外再拼一次进度接口
 
-### 16.23 账本预算详情
+### 16.24 账本预算详情
 
 - Method：`GET`
 - URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}`
@@ -1980,7 +2107,7 @@ POST /api/payments/checkout-sessions
 - `403`：无权限
 - `404`：账本或预算不存在，或预算不属于该账本
 
-### 16.24 创建账本预算
+### 16.25 创建账本预算
 
 - Method：`POST`
 - URL：`/api/ledgers/{ledgerId}/budgets`
@@ -2021,7 +2148,7 @@ POST /api/payments/checkout-sessions
 - `404`：账本不存在
 - `409`：相同范围预算已存在
 
-### 16.25 更新账本预算
+### 16.26 更新账本预算
 
 - Method：`PUT`
 - URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}`
@@ -2042,7 +2169,7 @@ POST /api/payments/checkout-sessions
 - `404`：账本或预算不存在
 - `409`：更新后与现有预算范围冲突
 
-### 16.26 删除账本预算
+### 16.27 删除账本预算
 
 - Method：`DELETE`
 - URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}`
@@ -2051,7 +2178,7 @@ POST /api/payments/checkout-sessions
 
 成功返回：HTTP `200` 空体
 
-### 16.27 新增预算阈值规则
+### 16.28 新增预算阈值规则
 
 - Method：`POST`
 - URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}/rules`
@@ -2092,7 +2219,7 @@ POST /api/payments/checkout-sessions
 - `createdAt`
 - `updatedAt`
 
-### 16.28 更新预算阈值规则
+### 16.29 更新预算阈值规则
 
 - Method：`PUT`
 - URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}/rules/{ruleId}`
@@ -2107,7 +2234,7 @@ POST /api/payments/checkout-sessions
 - `403`：无权限
 - `404`：账本、预算或规则不存在
 
-### 16.29 删除预算阈值规则
+### 16.30 删除预算阈值规则
 
 - Method：`DELETE`
 - URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}/rules/{ruleId}`
@@ -2115,7 +2242,7 @@ POST /api/payments/checkout-sessions
 - 权限：账本 `owner` / `admin`，或平台 `admin`
 
 成功返回：HTTP `200` 空体
-### 16.30 创建账本导出任务
+### 16.31 创建账本导出任务
 
 - Method：`POST`
 - URL：`/api/ledgers/{ledgerId}/export-jobs`
@@ -2167,7 +2294,7 @@ POST /api/payments/checkout-sessions
 - `updatedAt`
 - `downloadUrl`
 
-### 16.31 查询账本导出任务列表
+### 16.32 查询账本导出任务列表
 
 - Method：`GET`
 - URL：`/api/ledgers/{ledgerId}/export-jobs?limit=20`
@@ -2187,7 +2314,7 @@ POST /api/payments/checkout-sessions
 
 成功返回：`ExportJobDTO[]`
 
-### 16.32 查询单个账本导出任务
+### 16.33 查询单个账本导出任务
 
 - Method：`GET`
 - URL：`/api/ledgers/{ledgerId}/export-jobs/{jobId}`
@@ -2199,7 +2326,7 @@ POST /api/payments/checkout-sessions
 - `403`：不是任务创建人且不是平台 `admin`
 - `404`：账本或任务不存在
 
-### 16.33 下载账本导出任务文件
+### 16.34 下载账本导出任务文件
 
 - Method：`GET`
 - URL：`/api/ledgers/{ledgerId}/export-jobs/{jobId}/download`
