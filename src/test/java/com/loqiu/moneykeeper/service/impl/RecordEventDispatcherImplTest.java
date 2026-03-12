@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loqiu.moneykeeper.config.KafkaFeatureProperties;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.service.KafkaProducerService;
+import com.loqiu.moneykeeper.service.RecordEventConsumerState;
 import com.loqiu.moneykeeper.service.RecordEventHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,9 @@ class RecordEventDispatcherImplTest {
     @Mock
     private RecordEventHandler recordEventHandler;
 
+    @Mock
+    private RecordEventConsumerState recordEventConsumerState;
+
     private RecordEventDispatcherImpl dispatcher;
     private KafkaFeatureProperties kafkaFeatureProperties;
 
@@ -44,6 +48,7 @@ class RecordEventDispatcherImplTest {
         ReflectionTestUtils.setField(dispatcher, "kafkaFeatureProperties", kafkaFeatureProperties);
         ReflectionTestUtils.setField(dispatcher, "recordEventHandler", recordEventHandler);
         ReflectionTestUtils.setField(dispatcher, "objectMapper", new ObjectMapper().findAndRegisterModules());
+        ReflectionTestUtils.setField(dispatcher, "recordEventConsumerState", recordEventConsumerState);
     }
 
     @Test
@@ -62,6 +67,7 @@ class RecordEventDispatcherImplTest {
         kafkaFeatureProperties.setListenerAutoStartup(true);
         kafkaFeatureProperties.setRecordEventTopic("moneykeeper-record-events");
         when(kafkaProducerService.isEnabled()).thenReturn(true);
+        when(recordEventConsumerState.isReady()).thenReturn(true);
 
         dispatcher.dispatchRecordUpdated(31L, buildRecord(10L), buildRecord(11L));
 
@@ -77,11 +83,24 @@ class RecordEventDispatcherImplTest {
         kafkaFeatureProperties.setListenerAutoStartup(true);
         kafkaFeatureProperties.setRecordEventTopic("moneykeeper-record-events");
         when(kafkaProducerService.isEnabled()).thenReturn(true);
+        when(recordEventConsumerState.isReady()).thenReturn(true);
         doThrow(new IllegalStateException("Kafka unavailable")).when(kafkaProducerService).sendMessage(any(), any(), any());
 
         dispatcher.dispatchRecordDeleted(31L, buildRecord(11L));
 
         verify(recordEventHandler).handle(any());
+    }
+
+    @Test
+    void dispatchRecordCreatedShouldFallbackToLocalHandlerUntilConsumerIsReady() {
+        kafkaFeatureProperties.setEnabled(true);
+        kafkaFeatureProperties.setListenerAutoStartup(true);
+        when(recordEventConsumerState.isReady()).thenReturn(false);
+
+        dispatcher.dispatchRecordCreated(31L, buildRecord(11L));
+
+        verify(recordEventHandler).handle(any());
+        verify(kafkaProducerService, never()).sendMessage(any(), any(), any());
     }
 
     private MoneyKeeper buildRecord(Long id) {

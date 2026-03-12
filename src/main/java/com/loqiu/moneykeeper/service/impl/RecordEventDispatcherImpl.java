@@ -6,6 +6,7 @@ import com.loqiu.moneykeeper.config.KafkaFeatureProperties;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.event.RecordChangedEvent;
 import com.loqiu.moneykeeper.service.KafkaProducerService;
+import com.loqiu.moneykeeper.service.RecordEventConsumerState;
 import com.loqiu.moneykeeper.service.RecordEventDispatcher;
 import com.loqiu.moneykeeper.service.RecordEventHandler;
 import org.apache.logging.log4j.LogManager;
@@ -29,6 +30,9 @@ public class RecordEventDispatcherImpl implements RecordEventDispatcher {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private RecordEventConsumerState recordEventConsumerState;
 
     @Override
     public void dispatchRecordCreated(Long ledgerId, MoneyKeeper currentRecord) {
@@ -73,6 +77,7 @@ public class RecordEventDispatcherImpl implements RecordEventDispatcher {
     private boolean shouldPublishToKafka() {
         return kafkaFeatureProperties.isEnabled()
                 && kafkaFeatureProperties.isListenerAutoStartup()
+                && recordEventConsumerState.isReady()
                 && kafkaProducerService.isEnabled();
     }
 
