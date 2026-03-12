@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.loqiu.moneykeeper.dto.BudgetRuleDTO;
 import com.loqiu.moneykeeper.dto.LedgerBudgetDTO;
 import com.loqiu.moneykeeper.entity.Budget;
+import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.vo.BudgetRequest;
 import com.loqiu.moneykeeper.vo.BudgetRuleRequest;
 
@@ -25,4 +26,6 @@ public interface BudgetService extends IService<Budget> {
     BudgetRuleDTO updateRule(Long ledgerId, Long budgetId, Long ruleId, BudgetRuleRequest request);
 
     void deleteRule(Long ledgerId, Long budgetId, Long ruleId);
+
+    void syncThresholdNotificationsForLedgerRecord(Long ledgerId, MoneyKeeper previousRecord, MoneyKeeper currentRecord);
 }

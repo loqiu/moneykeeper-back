@@ -3,6 +3,7 @@ package com.loqiu.moneykeeper.controller;
 import com.loqiu.moneykeeper.entity.Category;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.exception.GlobalExceptionHandler;
+import com.loqiu.moneykeeper.service.BudgetService;
 import com.loqiu.moneykeeper.service.CategoryService;
 import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
@@ -11,6 +12,7 @@ import com.loqiu.moneykeeper.util.RequestAuthUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
@@ -22,9 +24,13 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -46,6 +52,9 @@ class LedgerRecordControllerTest {
     @Mock
     private RecordSearchService recordSearchService;
 
+    @Mock
+    private BudgetService budgetService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -55,6 +64,7 @@ class LedgerRecordControllerTest {
         ReflectionTestUtils.setField(controller, "categoryService", categoryService);
         ReflectionTestUtils.setField(controller, "ledgerService", ledgerService);
         ReflectionTestUtils.setField(controller, "recordSearchService", recordSearchService);
+        ReflectionTestUtils.setField(controller, "budgetService", budgetService);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -97,6 +107,11 @@ class LedgerRecordControllerTest {
                 .andExpect(jsonPath("$.categoryId").value(8));
 
         verify(recordSearchService).syncRecordIfEnabled(11L);
+        ArgumentCaptor<MoneyKeeper> recordCaptor = ArgumentCaptor.forClass(MoneyKeeper.class);
+        verify(budgetService).syncThresholdNotificationsForLedgerRecord(eq(31L), org.mockito.ArgumentMatchers.isNull(), recordCaptor.capture());
+        assertEquals(11L, recordCaptor.getValue().getId());
+        assertEquals(31L, recordCaptor.getValue().getLedgerId());
+        assertEquals(2L, recordCaptor.getValue().getUserId());
     }
 
     @Test
@@ -125,6 +140,83 @@ class LedgerRecordControllerTest {
                                 """))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("You do not have permission to modify this record"));
+    }
+
+    @Test
+    void updateRecordShouldSyncBudgetThresholdNotifications() throws Exception {
+        Category category = new Category();
+        category.setId(8L);
+        category.setLedgerId(31L);
+        category.setType("expense");
+
+        MoneyKeeper existingRecord = new MoneyKeeper();
+        existingRecord.setId(11L);
+        existingRecord.setLedgerId(31L);
+        existingRecord.setUserId(2L);
+        existingRecord.setCategoryId(8L);
+        existingRecord.setType("expense");
+        existingRecord.setAmount(new BigDecimal("18.50"));
+        existingRecord.setTransactionDate(LocalDate.of(2026, 3, 11));
+
+        MoneyKeeper storedRecord = new MoneyKeeper();
+        storedRecord.setId(11L);
+        storedRecord.setLedgerId(31L);
+        storedRecord.setUserId(2L);
+        storedRecord.setCategoryId(8L);
+        storedRecord.setType("expense");
+        storedRecord.setAmount(new BigDecimal("20.00"));
+        storedRecord.setTransactionDate(LocalDate.of(2026, 3, 11));
+
+        when(moneyKeeperService.getById(11L)).thenReturn(existingRecord, storedRecord);
+        when(categoryService.getById(8L)).thenReturn(category);
+        when(ledgerService.hasManagementPermission(31L, 2L)).thenReturn(false);
+        when(ledgerService.hasActiveMembership(31L, 2L)).thenReturn(true);
+
+        mockMvc.perform(put("/api/ledgers/31/records/11")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 2L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user")
+                        .content("""
+                                {
+                                  "amount": 20.00
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.amount").value(20.00));
+
+        verify(recordSearchService).syncRecordIfEnabled(11L);
+        ArgumentCaptor<MoneyKeeper> previousCaptor = ArgumentCaptor.forClass(MoneyKeeper.class);
+        ArgumentCaptor<MoneyKeeper> currentCaptor = ArgumentCaptor.forClass(MoneyKeeper.class);
+        verify(budgetService).syncThresholdNotificationsForLedgerRecord(eq(31L), previousCaptor.capture(), currentCaptor.capture());
+        assertEquals(new BigDecimal("18.50"), previousCaptor.getValue().getAmount());
+        assertEquals(new BigDecimal("20.00"), currentCaptor.getValue().getAmount());
+    }
+
+    @Test
+    void deleteRecordShouldSyncBudgetThresholdNotifications() throws Exception {
+        MoneyKeeper existingRecord = new MoneyKeeper();
+        existingRecord.setId(11L);
+        existingRecord.setLedgerId(31L);
+        existingRecord.setUserId(2L);
+        existingRecord.setCategoryId(8L);
+        existingRecord.setType("expense");
+        existingRecord.setAmount(new BigDecimal("18.50"));
+        existingRecord.setTransactionDate(LocalDate.of(2026, 3, 11));
+
+        when(moneyKeeperService.getById(11L)).thenReturn(existingRecord);
+        when(ledgerService.hasManagementPermission(31L, 2L)).thenReturn(false);
+        when(ledgerService.hasActiveMembership(31L, 2L)).thenReturn(true);
+
+        mockMvc.perform(delete("/api/ledgers/31/records/11")
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 2L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user"))
+                .andExpect(status().isOk());
+
+        verify(recordSearchService).removeRecordIfEnabled(11L);
+        ArgumentCaptor<MoneyKeeper> previousCaptor = ArgumentCaptor.forClass(MoneyKeeper.class);
+        verify(budgetService).syncThresholdNotificationsForLedgerRecord(eq(31L), previousCaptor.capture(), org.mockito.ArgumentMatchers.isNull());
+        assertEquals(11L, previousCaptor.getValue().getId());
+        assertNull(previousCaptor.getValue().getDeletedAt());
     }
 
     @Test

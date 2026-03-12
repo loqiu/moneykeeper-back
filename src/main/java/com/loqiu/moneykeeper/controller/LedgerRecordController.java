@@ -7,6 +7,7 @@ import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.exception.BadRequestException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
 import com.loqiu.moneykeeper.exception.ResourceNotFoundException;
+import com.loqiu.moneykeeper.service.BudgetService;
 import com.loqiu.moneykeeper.service.CategoryService;
 import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
@@ -50,6 +51,9 @@ public class LedgerRecordController {
 
     @Autowired
     private RecordSearchService recordSearchService;
+
+    @Autowired
+    private BudgetService budgetService;
 
     @GetMapping
     public ResponseEntity<List<MoneyKeeper>> listRecords(@PathVariable Long ledgerId,
@@ -113,6 +117,7 @@ public class LedgerRecordController {
 
         moneyKeeperService.insertMoneyKeeper(record);
         recordSearchService.syncRecordIfEnabled(record.getId());
+        budgetService.syncThresholdNotificationsForLedgerRecord(ledgerId, null, record);
         return ResponseEntity.ok(record);
     }
 
@@ -149,6 +154,7 @@ public class LedgerRecordController {
 
         moneyKeeperService.updateById(updatedRecord);
         recordSearchService.syncRecordIfEnabled(existingRecord.getId());
+        budgetService.syncThresholdNotificationsForLedgerRecord(ledgerId, existingRecord, updatedRecord);
         return ResponseEntity.ok(requireLedgerRecord(ledgerId, recordId));
     }
 
@@ -166,6 +172,7 @@ public class LedgerRecordController {
                 .set("deleted_time", LocalDateTime.now());
         moneyKeeperService.update(updateWrapper);
         recordSearchService.removeRecordIfEnabled(existingRecord.getId());
+        budgetService.syncThresholdNotificationsForLedgerRecord(ledgerId, existingRecord, null);
         return ResponseEntity.ok().build();
     }
 

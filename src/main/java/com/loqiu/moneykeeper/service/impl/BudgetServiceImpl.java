@@ -8,38 +8,55 @@ import com.loqiu.moneykeeper.dto.LedgerBudgetDTO;
 import com.loqiu.moneykeeper.entity.Budget;
 import com.loqiu.moneykeeper.entity.BudgetRule;
 import com.loqiu.moneykeeper.entity.Category;
+import com.loqiu.moneykeeper.entity.LedgerMember;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.exception.BadRequestException;
 import com.loqiu.moneykeeper.exception.ConflictException;
 import com.loqiu.moneykeeper.exception.ResourceNotFoundException;
 import com.loqiu.moneykeeper.mapper.BudgetMapper;
 import com.loqiu.moneykeeper.mapper.BudgetRuleMapper;
+import com.loqiu.moneykeeper.mapper.LedgerMemberMapper;
 import com.loqiu.moneykeeper.service.BudgetService;
 import com.loqiu.moneykeeper.service.CategoryService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
+import com.loqiu.moneykeeper.service.NotificationService;
 import com.loqiu.moneykeeper.vo.BudgetRequest;
 import com.loqiu.moneykeeper.vo.BudgetRuleRequest;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
 public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> implements BudgetService {
 
+    private static final Logger logger = LogManager.getLogger(BudgetServiceImpl.class);
+
     private static final String PERIOD_TYPE_MONTHLY = "monthly";
     private static final String RULE_TYPE_THRESHOLD = "threshold";
+    private static final String LEDGER_MEMBER_STATUS_ACTIVE = "active";
+    private static final Set<String> LEDGER_MANAGEMENT_ROLES = Set.of("owner", "admin");
+    private static final String BUDGET_THRESHOLD_NOTIFICATION_KEY = "budget:threshold:notification:";
+    private static final int NOTIFICATION_TTL_BUFFER_DAYS = 7;
 
     @Autowired
     private BudgetRuleMapper budgetRuleMapper;
@@ -49,6 +66,15 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
 
     @Autowired
     private MoneyKeeperService moneyKeeperService;
+
+    @Autowired
+    private LedgerMemberMapper ledgerMemberMapper;
+
+    @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
 
     @Override
     public List<LedgerBudgetDTO> listBudgets(Long ledgerId, Integer year, Integer month, String type, Long categoryId) {
@@ -213,6 +239,36 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
         budgetRuleMapper.deleteById(rule.getId());
     }
 
+    @Override
+    public void syncThresholdNotificationsForLedgerRecord(Long ledgerId, MoneyKeeper previousRecord, MoneyKeeper currentRecord) {
+        if (ledgerId == null) {
+            return;
+        }
+
+        try {
+            List<Budget> impactedBudgets = loadImpactedBudgets(ledgerId, previousRecord, currentRecord);
+            if (impactedBudgets.isEmpty()) {
+                return;
+            }
+
+            Map<Long, List<BudgetRuleDTO>> rulesByBudgetId = loadRuleDtos(
+                    impactedBudgets.stream().map(Budget::getId).filter(Objects::nonNull).toList()
+            );
+            Set<Long> managerUserIds = loadLedgerManagerUserIds(ledgerId);
+
+            for (Budget budget : impactedBudgets) {
+                syncBudgetThresholdNotifications(budget, rulesByBudgetId.getOrDefault(budget.getId(), List.of()), managerUserIds);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to sync budget threshold notifications - ledgerId: {}, previousRecordId: {}, currentRecordId: {}, error: {}",
+                    ledgerId,
+                    previousRecord == null ? null : previousRecord.getId(),
+                    currentRecord == null ? null : currentRecord.getId(),
+                    e.getMessage(),
+                    e);
+        }
+    }
+
     private List<LedgerBudgetDTO> enrichBudgets(List<Budget> budgets) {
         Map<Long, List<BudgetRuleDTO>> rulesByBudgetId = loadRuleDtos(
                 budgets.stream().map(Budget::getId).filter(Objects::nonNull).toList()
@@ -224,6 +280,14 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
     }
 
     private Map<Long, List<BudgetRuleDTO>> loadRuleDtos(List<Long> budgetIds) {
+        return loadRulesByBudgetId(budgetIds).entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().stream().map(this::toRuleDto).toList()
+                ));
+    }
+
+    private Map<Long, List<BudgetRule>> loadRulesByBudgetId(List<Long> budgetIds) {
         if (budgetIds == null || budgetIds.isEmpty()) {
             return Map.of();
         }
@@ -231,8 +295,7 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
         queryWrapper.in("budget_id", budgetIds)
                 .orderByAsc("threshold_percentage", "id");
         return budgetRuleMapper.selectList(queryWrapper).stream()
-                .map(this::toRuleDto)
-                .collect(Collectors.groupingBy(BudgetRuleDTO::getBudgetId, Collectors.toList()));
+                .collect(Collectors.groupingBy(BudgetRule::getBudgetId, Collectors.toList()));
     }
 
     private Map<Long, Category> loadCategories(List<Budget> budgets) {
@@ -311,6 +374,169 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
                 .exceeded(remainingAmount.signum() < 0)
                 .triggeredThresholdPercentages(triggeredThresholds)
                 .build();
+    }
+
+    private void syncBudgetThresholdNotifications(Budget budget,
+                                                  List<BudgetRuleDTO> rules,
+                                                  Set<Long> managerUserIds) {
+        if (budget == null || rules == null || rules.isEmpty()) {
+            return;
+        }
+
+        BudgetProgressDTO progress = calculateProgress(budget, rules);
+        Set<Long> recipientUserIds = new LinkedHashSet<>(managerUserIds);
+        if (recipientUserIds.isEmpty() && budget.getCreatedByUserId() != null) {
+            recipientUserIds.add(budget.getCreatedByUserId());
+        }
+        if (recipientUserIds.isEmpty()) {
+            return;
+        }
+
+        for (BudgetRuleDTO rule : rules) {
+            if (rule == null || !rule.isEnabled() || rule.getThresholdPercentage() == null) {
+                continue;
+            }
+            syncThresholdNotificationState(budget, rule, progress, recipientUserIds);
+        }
+    }
+
+    private void syncThresholdNotificationState(Budget budget,
+                                                BudgetRuleDTO rule,
+                                                BudgetProgressDTO progress,
+                                                Set<Long> recipientUserIds) {
+        String notificationTitle = resolveNotificationTitle(budget, rule);
+        String notificationMessage = resolveNotificationMessage(budget, rule, progress);
+        boolean thresholdReached = progress.getUsagePercentage().compareTo(rule.getThresholdPercentage()) >= 0;
+
+        for (Long userId : recipientUserIds) {
+            if (userId == null) {
+                continue;
+            }
+
+            String notificationKey = buildThresholdNotificationKey(budget, rule, userId);
+            if (!thresholdReached) {
+                redisTemplate.delete(notificationKey);
+                continue;
+            }
+
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(notificationKey))) {
+                continue;
+            }
+
+            notificationService.sendWarningMessage(userId, notificationTitle, notificationMessage);
+            rememberThresholdNotification(notificationKey, budget, progress);
+        }
+    }
+
+    private List<Budget> loadImpactedBudgets(Long ledgerId, MoneyKeeper previousRecord, MoneyKeeper currentRecord) {
+        Set<Long> impactedBudgetIds = new LinkedHashSet<>();
+        List<Budget> impactedBudgets = new ArrayList<>();
+        collectImpactedBudgets(ledgerId, previousRecord, impactedBudgetIds, impactedBudgets);
+        collectImpactedBudgets(ledgerId, currentRecord, impactedBudgetIds, impactedBudgets);
+        return impactedBudgets;
+    }
+
+    private void collectImpactedBudgets(Long ledgerId,
+                                        MoneyKeeper record,
+                                        Set<Long> impactedBudgetIds,
+                                        List<Budget> impactedBudgets) {
+        if (record == null
+                || record.getTransactionDate() == null
+                || !StringUtils.hasText(record.getType())
+                || !Objects.equals(ledgerId, record.getLedgerId())) {
+            return;
+        }
+
+        QueryWrapper<Budget> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("ledger_id", ledgerId)
+                .eq("budget_year", record.getTransactionDate().getYear())
+                .eq("budget_month", record.getTransactionDate().getMonthValue())
+                .eq("type", record.getType().trim());
+        if (record.getCategoryId() == null) {
+            queryWrapper.isNull("category_id");
+        } else {
+            queryWrapper.and(wrapper -> wrapper.isNull("category_id").or().eq("category_id", record.getCategoryId()));
+        }
+
+        for (Budget budget : list(queryWrapper)) {
+            if (budget != null && impactedBudgetIds.add(budget.getId())) {
+                impactedBudgets.add(budget);
+            }
+        }
+    }
+
+    private Set<Long> loadLedgerManagerUserIds(Long ledgerId) {
+        QueryWrapper<LedgerMember> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("ledger_id", ledgerId)
+                .eq("status", LEDGER_MEMBER_STATUS_ACTIVE)
+                .in("role", LEDGER_MANAGEMENT_ROLES);
+        return ledgerMemberMapper.selectList(queryWrapper).stream()
+                .map(LedgerMember::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private String resolveNotificationTitle(Budget budget, BudgetRuleDTO rule) {
+        String customTitle = trimToNull(rule.getNotificationTitle());
+        if (customTitle != null) {
+            return customTitle;
+        }
+        return String.format("Budget threshold reached: %s", budget.getName());
+    }
+
+    private String resolveNotificationMessage(Budget budget,
+                                              BudgetRuleDTO rule,
+                                              BudgetProgressDTO progress) {
+        String customMessage = trimToNull(rule.getNotificationMessage());
+        if (customMessage != null) {
+            return customMessage;
+        }
+        String period = String.format("%04d-%02d", budget.getBudgetYear(), budget.getBudgetMonth());
+        return String.format(
+                "Budget \"%s\" for %s reached %s%% usage (%s / %s), crossing the %s%% threshold.",
+                budget.getName(),
+                period,
+                progress.getUsagePercentage().toPlainString(),
+                progress.getSpentAmount().toPlainString(),
+                budget.getAmount().toPlainString(),
+                rule.getThresholdPercentage().toPlainString()
+        );
+    }
+
+    private String buildThresholdNotificationKey(Budget budget, BudgetRuleDTO rule, Long userId) {
+        return BUDGET_THRESHOLD_NOTIFICATION_KEY
+                + budget.getId()
+                + ":"
+                + rule.getId()
+                + ":"
+                + rule.getThresholdPercentage().toPlainString()
+                + ":user:"
+                + userId;
+    }
+
+    private void rememberThresholdNotification(String notificationKey,
+                                               Budget budget,
+                                               BudgetProgressDTO progress) {
+        Duration ttl = resolveNotificationTtl(budget);
+        if (ttl != null && !ttl.isZero() && !ttl.isNegative()) {
+            redisTemplate.opsForValue().set(notificationKey, progress.getUsagePercentage().toPlainString(), ttl);
+            return;
+        }
+        redisTemplate.opsForValue().set(notificationKey, progress.getUsagePercentage().toPlainString());
+    }
+
+    private Duration resolveNotificationTtl(Budget budget) {
+        if (budget == null || budget.getEndDate() == null) {
+            return Duration.ofDays(NOTIFICATION_TTL_BUFFER_DAYS);
+        }
+        LocalDateTime expiresAt = budget.getEndDate()
+                .plusDays(NOTIFICATION_TTL_BUFFER_DAYS)
+                .atTime(LocalTime.MAX);
+        Duration ttl = Duration.between(LocalDateTime.now(), expiresAt);
+        if (ttl.isNegative() || ttl.isZero()) {
+            return Duration.ofHours(1);
+        }
+        return ttl;
     }
 
     private Budget requireBudget(Long ledgerId, Long budgetId) {

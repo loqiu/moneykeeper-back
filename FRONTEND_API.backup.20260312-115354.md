@@ -2074,6 +2074,9 @@ POST /api/payments/checkout-sessions
 - `thresholdPercentage`：必填，范围 `(0, 200]`
 - `enabled`：可选，默认 `true`
 - 当前规则类型固定为 `threshold`
+- 阈值规则会在账本记录新增、更新、删除后自动重新评估
+- 同一预算规则在同一预算周期内首次跨过阈值时会自动写入通知日志；如果后续因改记录回落到阈值以下，再次跨过会重新提醒
+- 自动提醒会出现在 `/api/notifications/logs`，消息类型为 `warning`
 
 成功返回：`BudgetRuleDTO`
 
