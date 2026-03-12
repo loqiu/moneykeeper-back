@@ -710,6 +710,7 @@ Authorization: Bearer <token>
 前端注意：
 
 - 账本搜索依赖 Elasticsearch 索引里的 `ledgerId`
+- 新创建、更新、删除的账本记录会自动同步到 Elasticsearch，正常联调无需每次手动执行重建索引
 - 如果这是老环境升级后的首次使用，管理员应先调用 `POST /api/search/records/reindex` 或 `POST /api/search/records/reindex/ledger?ledgerId=...` 给历史索引补齐 `ledgerId`
 
 失败：
@@ -1800,6 +1801,11 @@ POST /api/payments/checkout-sessions
 - `notes`
 - `score`
 
+前端注意：
+
+- 账本记录正常写入后会自动同步搜索索引，通常不需要前端额外触发重建
+- 只有老环境历史数据补齐或索引异常修复时，才需要管理员调用重建接口
+
 ### 16.21 导出账本记录 Excel
 
 - Method：`GET`
@@ -1823,3 +1829,199 @@ POST /api/payments/checkout-sessions
 - `400`：日期范围非法
 - `403`：无权限
 - `404`：账本不存在
+### 16.22 账本预算列表
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/budgets?year=2026&month=3&type=expense&categoryId=8`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+查询参数：
+
+- `year`：可选；按预算年份过滤
+- `month`：可选；按预算月份过滤
+- `type`：可选，`income` / `expense`
+- `categoryId`：可选；按账本分类过滤
+
+返回：`LedgerBudgetDTO[]`
+
+`LedgerBudgetDTO` 主要字段：
+
+- `id`
+- `ledgerId`
+- `createdByUserId`
+- `categoryId`
+- `categoryName`
+- `name`
+- `periodType`：当前固定为 `monthly`
+- `budgetYear`
+- `budgetMonth`
+- `startDate`
+- `endDate`
+- `type`
+- `amount`
+- `notes`
+- `createdAt`
+- `updatedAt`
+- `progress`
+- `rules`
+
+`progress` 字段：
+
+- `spentAmount`
+- `remainingAmount`
+- `usagePercentage`
+- `exceeded`
+- `triggeredThresholdPercentages`
+
+前端注意：
+
+- 当前预算基础层只支持“月度预算”
+- 列表和详情都会直接返回预算进度与阈值规则，无需额外再拼一次进度接口
+
+### 16.23 账本预算详情
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+返回：`LedgerBudgetDTO`
+
+失败：
+
+- `403`：无权限
+- `404`：账本或预算不存在，或预算不属于该账本
+
+### 16.24 创建账本预算
+
+- Method：`POST`
+- URL：`/api/ledgers/{ledgerId}/budgets`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+请求体：
+
+```json
+{
+  "name": "March Coffee Budget",
+  "categoryId": 8,
+  "type": "expense",
+  "amount": 200,
+  "budgetYear": 2026,
+  "budgetMonth": 3,
+  "notes": "Team coffee"
+}
+```
+
+规则：
+
+- `name`：必填
+- `type`：必填，只允许 `income` / `expense`
+- `amount`：必填，必须大于 `0`
+- `budgetYear`：必填，范围 `2000-2100`
+- `budgetMonth`：必填，范围 `1-12`
+- `categoryId`：可选；如果传了，必须属于当前账本，且分类 `type` 要与预算 `type` 一致
+- 当前会自动生成该月的 `startDate` / `endDate`
+- 同一个账本下，同月 + 同类型 + 同分类范围的预算不能重复创建
+
+成功返回：`LedgerBudgetDTO`
+
+失败：
+
+- `400`：参数缺失、金额非法、年月非法、分类不属于该账本、预算类型与分类类型不一致
+- `403`：无权限
+- `404`：账本不存在
+- `409`：相同范围预算已存在
+
+### 16.25 更新账本预算
+
+- Method：`PUT`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+请求体：字段全部可选，但至少传一个
+
+说明：
+
+- 更新 `budgetYear` / `budgetMonth` 后，会自动重算该预算的 `startDate` / `endDate`
+- 当前 `categoryId` 只支持更新为另一个分类，不支持通过 `null` 主动清空成“无分类范围”
+
+失败：
+
+- `400`：请求体为空、没有更新字段、金额非法、年月非法、分类不属于该账本、预算类型与分类类型不一致
+- `403`：无权限
+- `404`：账本或预算不存在
+- `409`：更新后与现有预算范围冲突
+
+### 16.26 删除账本预算
+
+- Method：`DELETE`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+成功返回：HTTP `200` 空体
+
+### 16.27 新增预算阈值规则
+
+- Method：`POST`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}/rules`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+请求体：
+
+```json
+{
+  "thresholdPercentage": 80,
+  "enabled": true,
+  "notificationTitle": "Budget alert",
+  "notificationMessage": "Monthly budget is almost used up"
+}
+```
+
+规则：
+
+- `thresholdPercentage`：必填，范围 `(0, 200]`
+- `enabled`：可选，默认 `true`
+- 当前规则类型固定为 `threshold`
+
+成功返回：`BudgetRuleDTO`
+
+`BudgetRuleDTO` 字段：
+
+- `id`
+- `budgetId`
+- `ruleType`
+- `thresholdPercentage`
+- `enabled`
+- `notificationTitle`
+- `notificationMessage`
+- `createdAt`
+- `updatedAt`
+
+### 16.28 更新预算阈值规则
+
+- Method：`PUT`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}/rules/{ruleId}`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+请求体：字段全部可选，但至少传一个
+
+失败：
+
+- `400`：请求体为空、没有更新字段、阈值非法
+- `403`：无权限
+- `404`：账本、预算或规则不存在
+
+### 16.29 删除预算阈值规则
+
+- Method：`DELETE`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}/rules/{ruleId}`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+成功返回：HTTP `200` 空体

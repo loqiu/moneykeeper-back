@@ -1,4 +1,4 @@
-# MoneyKeeper 前端联调文档
+﻿# MoneyKeeper 前端联调文档
 
 编码要求：本文件必须以 `UTF-8` 保存，禁止使用 `GB2312`、`GBK` 或其他本地编码。
 
@@ -66,9 +66,12 @@ Unauthorized
   "error": "Bad Request",
   "message": "具体错误信息",
   "path": "/api/xxx",
-  "timestamp": "2026-03-10T02:00:00"
+  "timestamp": "2026-03-10T02:00:00",
+  "traceId": "TRACE-20260311-0001"
 }
 ```
+
+补充说明：`ApiErrorResponse` 中会携带 `traceId`，响应头也会返回同一个 `traceId`，前端记录报错时建议一并带上。
 
 #### C. `MkApiResponse<T>`
 
@@ -379,7 +382,7 @@ Authorization: Bearer <token>
 注意：
 
 - `type` 当前按业务使用 `income` / `expense`
-- 当前创建成功后返回体里的 `id` 不保证已回填，前端不要依赖返回 `id` 立即做跳转
+- 当前创建成功后返回体里的 `id` 会回填，前端可以直接使用返回的 `id`
 
 失败：
 
@@ -507,7 +510,7 @@ Authorization: Bearer <token>
 
 注意：
 
-- 当前创建成功后返回体里的 `id` 不保证已回填，前端不要依赖返回 `id` 立即做下一步
+- 当前创建成功后返回体里的 `id` 会回填，前端可以直接使用返回的 `id` 做下一步
 
 失败：
 
@@ -635,7 +638,7 @@ Authorization: Bearer <token>
 
 返回形态：`ResponseEntity`
 
-### 7.1 搜索记录
+### 7.1 搜索个人记录
 
 - Method：`GET`
 - URL：`/api/search/records`
@@ -655,6 +658,7 @@ Authorization: Bearer <token>
 返回元素：`RecordSearchResultDTO`
 
 - `id`
+- `ledgerId`
 - `userId`
 - `categoryId`
 - `categoryName`
@@ -671,7 +675,51 @@ Authorization: Bearer <token>
 - `403`：普通用户查询他人数据
 - `503`：Elasticsearch 模块关闭或未就绪
 
-### 7.2 全量或按用户重建索引
+### 7.2 搜索账本记录
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/search/records`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+查询参数：
+
+- `userId`：可选；按账本成员过滤
+- `query`：可选，全文关键字
+- `type`：可选
+- `categoryId`：可选
+- `categoryName`：可选
+- `startDate`：可选
+- `endDate`：可选
+- `limit`：可选，默认 `20`，范围 `1-100`
+
+返回元素：`RecordSearchResultDTO`
+
+- `id`
+- `ledgerId`
+- `userId`
+- `categoryId`
+- `categoryName`
+- `type`
+- `amount`
+- `transactionDate`
+- `updatedAt`
+- `notes`
+- `score`
+
+前端注意：
+
+- 账本搜索依赖 Elasticsearch 索引里的 `ledgerId`
+- 新创建、更新、删除的账本记录会自动同步到 Elasticsearch，正常联调无需每次手动执行重建索引
+- 如果这是老环境升级后的首次使用，管理员应先调用 `POST /api/search/records/reindex` 或 `POST /api/search/records/reindex/ledger?ledgerId=...` 给历史索引补齐 `ledgerId`
+
+失败：
+
+- `400`：日期范围非法，或 `limit` 超范围
+- `403`：无权限
+- `503`：Elasticsearch 模块关闭或未就绪
+
+### 7.3 全量或按用户重建索引
 
 - Method：`POST`
 - URL：`/api/search/records/reindex?userId=1`
@@ -681,6 +729,7 @@ Authorization: Bearer <token>
 
 - `scope`
 - `userId`
+- `ledgerId`
 - `indexedCount`
 - `indexName`
 - `reindexedAt`
@@ -690,7 +739,27 @@ Authorization: Bearer <token>
 - `403`：非管理员
 - `503`：Elasticsearch 未就绪
 
-### 7.3 索引统计
+### 7.4 按账本重建索引
+
+- Method：`POST`
+- URL：`/api/search/records/reindex/ledger?ledgerId=31`
+- 权限：仅 `admin`
+
+返回：`RecordSearchReindexResultDTO`
+
+- `scope`：固定为 `ledger`
+- `ledgerId`
+- `indexedCount`
+- `indexName`
+- `reindexedAt`
+
+失败：
+
+- `400`：缺少 `ledgerId`
+- `403`：非管理员
+- `503`：Elasticsearch 未就绪
+
+### 7.5 索引统计
 
 - Method：`GET`
 - URL：`/api/search/records/stats?userId=1`
@@ -700,6 +769,7 @@ Authorization: Bearer <token>
 
 - `scope`
 - `userId`
+- `ledgerId`
 - `enabled`
 - `ready`
 - `indexName`
@@ -710,6 +780,30 @@ Authorization: Bearer <token>
 
 失败：
 
+- `403`：非管理员
+- `503`：Elasticsearch 未就绪
+
+### 7.6 按账本查看索引统计
+
+- Method：`GET`
+- URL：`/api/search/records/stats/ledger?ledgerId=31`
+- 权限：仅 `admin`
+
+返回：`RecordSearchIndexStatsDTO`
+
+- `scope`：固定为 `ledger`
+- `ledgerId`
+- `enabled`
+- `ready`
+- `indexName`
+- `indexExists`
+- `indexedDocumentCount`
+- `databaseRecordCount`
+- `statsCollectedAt`
+
+失败：
+
+- `400`：缺少 `ledgerId`
 - `403`：非管理员
 - `503`：Elasticsearch 未就绪
 
@@ -724,6 +818,30 @@ Authorization: Bearer <token>
 
 查询参数：
 
+- `type`：可选，`income` / `expense`
+- `startDate`：可选
+- `endDate`：可选
+
+返回：
+
+- 文件流：`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+
+失败：
+
+- `400`：日期范围非法
+- `403`：无权限
+- `500`：文件生成失败
+
+### 8.2 下载账本记录
+
+- Method：`GET`
+- URL：`/api/excel/ledgers/{ledgerId}/download`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+查询参数：
+
+- `userId`：可选；按账本成员过滤
 - `type`：可选，`income` / `expense`
 - `startDate`：可选
 - `endDate`：可选
@@ -1221,9 +1339,9 @@ POST /api/payments/checkout-sessions
 
 `/api/notifications/subscribe/{userId}` 需要 JWT。浏览器原生 `EventSource` 不方便携带 `Authorization` 头，前端请提前确认 SSE 方案。
 
-### 15.2 创建分类和记录时不要依赖返回 `id`
+### 15.2 创建分类和记录后可以直接使用返回 `id`
 
-当前创建分类、创建记录虽然会立即返回对象，但返回体里的 `id` 不保证已回填。前端不要把“创建成功响应的 `id`”作为下一步请求的唯一依据，建议通过重新拉列表或后端后续修复后再依赖。
+当前创建分类、创建记录已开启 generated keys，返回体里的 `id` 会回填。前端可以直接把“创建成功响应的 `id`”用于下一步请求。
 
 ### 15.3 `MkApiResponse` 与 `ApiErrorResponse` 会混用
 
@@ -1233,3 +1351,677 @@ POST /api/payments/checkout-sessions
 - 但请求体 JSON 格式错误时，会直接返回 `400 + ApiErrorResponse`
 
 前端请不要只按一种 JSON 结构写死解析。
+### 15.4 生产环境域名建议
+
+当前推荐的生产环境访问方式：
+
+- REST API：`https://api.money-keeper.com/api`
+- SSE：`https://money-keeper.com/api/notifications/subscribe/{userId}`
+
+说明：
+
+- 普通 REST 请求走 `api` 子域名直连。
+- SSE 保持走主域名同域 `/api` 反代，继续使用支持自定义请求头的 SSE client，并携带 `Authorization: Bearer <token>`。
+- 如果生产环境主域名代理 SSE，请确保该链路支持流式转发，且不要缓存、不要缓冲响应。
+
+## 16. 账本模块 `/api/ledgers`
+
+返回形态：`MkApiResponse`
+
+当前这一批账本接口已经覆盖：
+
+- 账本创建
+- 账本成员查看
+- 邀请与接受邀请
+- 账本维度分类管理
+- 账本维度记录管理与汇总
+
+当前仍未覆盖：
+
+- 账本维度搜索索引
+- 账本维度导出任务
+
+前端注意：
+
+- 个人账本仍可继续使用原有 `/api/categories` 和 `/api/records`
+- 共享账本场景请改用 `/api/ledgers/{ledgerId}/...` 这组嵌套路由
+
+### 16.1 创建账本
+
+- Method：`POST`
+- URL：`/api/ledgers`
+- 认证：是
+
+请求体：
+
+```json
+{
+  "name": "Family Ledger",
+  "type": "family"
+}
+```
+
+字段约束：
+
+- `name`：必填
+- `type`：可选，默认 `shared`
+- `type` 允许值：`shared`、`family`、`project`
+- 不允许手工创建 `personal` 账本
+
+成功返回：`MkApiResponse<LedgerSummaryDTO>`
+
+```json
+{
+  "code": 200,
+  "message": "Ledger created",
+  "data": {
+    "id": 31,
+    "name": "Family Ledger",
+    "type": "family",
+    "ownerUserId": 1,
+    "memberRole": "owner",
+    "defaultLedger": false
+  }
+}
+```
+
+说明：
+
+- 创建成功后，创建人会自动成为该账本的 `owner`
+
+### 16.2 我的账本列表
+
+- Method：`GET`
+- URL：`/api/ledgers`
+- 认证：是
+
+返回：当前用户参与的全部账本，元素为 `LedgerSummaryDTO`
+
+字段：
+
+- `id`
+- `name`
+- `type`
+- `ownerUserId`
+- `memberRole`
+- `defaultLedger`
+
+### 16.3 默认个人账本
+
+- Method：`GET`
+- URL：`/api/ledgers/default`
+- 认证：是
+
+返回：当前用户的默认个人账本 `LedgerSummaryDTO`
+
+### 16.4 账本成员列表
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/members`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+返回元素：`LedgerMemberDTO`
+
+- `userId`
+- `username`
+- `email`
+- `role`
+- `status`
+- `joinedAt`
+
+当前 `role` 可能值：
+
+- `owner`
+- `admin`
+- `member`
+
+### 16.5 创建邀请
+
+- Method：`POST`
+- URL：`/api/ledgers/{ledgerId}/invites`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+请求体：
+
+```json
+{
+  "invitedEmail": "bob@example.com",
+  "role": "member",
+  "expiresInDays": 7
+}
+```
+
+字段约束：
+
+- `invitedEmail`：必填
+- `role`：可选，默认 `member`
+- `role` 允许值：`admin`、`member`
+- `expiresInDays`：可选，默认 `7`，范围 `1-30`
+
+成功返回：`MkApiResponse<LedgerInviteDTO>`
+
+字段：
+
+- `id`
+- `ledgerId`
+- `ledgerName`
+- `invitedByUserId`
+- `invitedEmail`
+- `inviteCode`
+- `role`
+- `status`
+- `expiresAt`
+- `acceptedAt`
+- `createdAt`
+
+失败：
+
+- `400`：请求体为空、邮箱为空、角色非法、过期天数超范围、尝试分享 `personal` 账本
+- `403`：无邀请权限
+- `404`：账本不存在
+- `409`：目标邮箱对应用户已经是该账本成员
+
+### 16.6 查看账本邀请列表
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/invites`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+返回元素：`LedgerInviteDTO`
+
+说明：
+
+- 过期的待处理邀请会显示为 `status=expired`
+
+### 16.7 查看我的待接受邀请
+
+- Method：`GET`
+- URL：`/api/ledgers/invites`
+- 认证：是
+
+返回：当前用户邮箱匹配到的待处理邀请列表，元素为 `LedgerInviteDTO`
+
+前端注意：
+
+- 这个接口按“当前账号邮箱”匹配邀请
+- 如果用户账号没有邮箱，返回空列表
+- 接受邀请前，前端应提示用户确认当前登录邮箱与受邀邮箱一致
+
+### 16.8 接受邀请
+
+- Method：`POST`
+- URL：`/api/ledgers/invites/{inviteCode}/accept`
+- 认证：是
+
+成功返回：`MkApiResponse<LedgerSummaryDTO>`
+
+```json
+{
+  "code": 200,
+  "message": "Invite accepted",
+  "data": {
+    "id": 31,
+    "name": "Family Ledger",
+    "type": "family",
+    "ownerUserId": 1,
+    "memberRole": "member",
+    "defaultLedger": false
+  }
+}
+```
+
+失败：
+
+- `400`：邀请码为空、邀请码已过期、邀请码已失效
+- `403`：当前登录用户邮箱与受邀邮箱不一致
+- `404`：邀请码不存在，或账本不存在
+
+### 16.9 账本分类列表
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/categories?type=expense`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+查询参数：
+
+- `type`：可选，`income` / `expense`
+
+返回：`Category[]`
+
+说明：
+
+- 返回的 `Category` 会带 `ledgerId`
+- 共享账本前端应优先基于这组分类接口渲染分类选择器
+
+### 16.10 账本分类详情
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/categories/{categoryId}`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+失败：
+
+- `403`：无权限
+- `404`：账本或分类不存在，或分类不属于该账本
+
+### 16.11 创建账本分类
+
+- Method：`POST`
+- URL：`/api/ledgers/{ledgerId}/categories`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+请求体：
+
+```json
+{
+  "name": "Transport",
+  "icon": "car",
+  "color": "#3B82F6",
+  "type": "expense"
+}
+```
+
+规则：
+
+- 当前创建人会写入返回体里的 `userId`
+- 分类归属账本以路径中的 `ledgerId` 为准
+- 普通 `member` 当前不能新增或维护共享账本分类
+
+失败：
+
+- `400`：请求体为空、字段为空
+- `403`：无权限
+- `404`：账本不存在
+
+### 16.12 更新账本分类
+
+- Method：`PUT`
+- URL：`/api/ledgers/{ledgerId}/categories/{categoryId}`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+请求体：字段全部可选，但至少传一个
+
+失败：
+
+- `400`：请求体为空、没有更新字段、或字段为空字符串
+- `403`：无权限
+- `404`：账本或分类不存在
+
+### 16.13 删除账本分类
+
+- Method：`DELETE`
+- URL：`/api/ledgers/{ledgerId}/categories/{categoryId}`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+成功返回：HTTP `200` 空体
+
+### 16.14 账本记录列表
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/records?userId=2&categoryId=8&type=expense&startDate=2026-03-01&endDate=2026-03-31`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+查询参数：
+
+- `userId`：可选，按成员过滤
+- `categoryId`：可选，按分类过滤
+- `type`：可选，`income` / `expense`
+- `startDate`：可选
+- `endDate`：可选
+
+返回：`MoneyKeeper[]`
+
+### 16.15 账本记录详情
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/records/{recordId}`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+失败：
+
+- `403`：无权限
+- `404`：账本或记录不存在，或记录不属于该账本
+
+### 16.16 创建账本记录
+
+- Method：`POST`
+- URL：`/api/ledgers/{ledgerId}/records`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+请求体：
+
+```json
+{
+  "userId": 2,
+  "categoryId": 8,
+  "type": "expense",
+  "amount": 18.5,
+  "transactionDate": "2026-03-11",
+  "notes": "Team lunch"
+}
+```
+
+规则：
+
+- 普通用户即使传了 `userId`，也会按当前登录用户处理
+- 平台 `admin` 可以指定 `userId`，但目标用户必须是该账本有效成员
+- `categoryId` 必须属于当前账本
+- `type` 必须与所选分类的 `type` 一致
+
+失败：
+
+- `400`：参数缺失、金额非法、分类不属于该账本、记录类型与分类类型不一致、目标用户不是账本成员
+- `403`：无权限
+- `404`：账本或分类不存在
+
+### 16.17 更新账本记录
+
+- Method：`PUT`
+- URL：`/api/ledgers/{ledgerId}/records/{recordId}`
+- 认证：是
+- 权限：
+  - 账本 `owner` / `admin` 可修改任意记录
+  - 普通 `member` 只能修改自己创建的记录
+  - 平台 `admin` 可直接修改
+
+请求体：字段全部可选，但至少传一个
+
+失败：
+
+- `400`：请求体为空、没有更新字段、金额非法、分类不属于该账本、类型与分类类型不一致
+- `403`：无权限
+- `404`：账本、记录或分类不存在
+
+### 16.18 删除账本记录
+
+- Method：`DELETE`
+- URL：`/api/ledgers/{ledgerId}/records/{recordId}`
+- 认证：是
+- 权限规则同 16.17
+
+成功返回：HTTP `200` 空体
+
+### 16.19 账本记录汇总
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/records/summary?startDate=2026-03-01&endDate=2026-03-31`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+返回：`RecordSummary`
+
+```json
+{
+  "totalIncome": 1000,
+  "totalExpense": 500,
+  "balance": 500
+}
+```
+
+### 16.20 账本记录搜索
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/search/records?userId=2&query=lunch&type=expense&startDate=2026-03-01&endDate=2026-03-31`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+查询参数：
+
+- `userId`：可选，按账本成员过滤
+- `query`：可选，全文关键字
+- `type`：可选
+- `categoryId`：可选
+- `categoryName`：可选
+- `startDate`：可选
+- `endDate`：可选
+- `limit`：可选，默认 `20`，范围 `1-100`
+
+返回元素：`RecordSearchResultDTO`
+
+- `id`
+- `ledgerId`
+- `userId`
+- `categoryId`
+- `categoryName`
+- `type`
+- `amount`
+- `transactionDate`
+- `updatedAt`
+- `notes`
+- `score`
+
+前端注意：
+
+- 账本记录正常写入后会自动同步搜索索引，通常不需要前端额外触发重建
+- 只有老环境历史数据补齐或索引异常修复时，才需要管理员调用重建接口
+
+### 16.21 导出账本记录 Excel
+
+- Method：`GET`
+- URL：`/api/excel/ledgers/{ledgerId}/download?userId=2&type=expense&startDate=2026-03-01&endDate=2026-03-31`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+查询参数：
+
+- `userId`：可选，按账本成员过滤
+- `type`：可选，`income` / `expense`
+- `startDate`：可选
+- `endDate`：可选
+
+返回：
+
+- 文件流：`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+
+失败：
+
+- `400`：日期范围非法
+- `403`：无权限
+- `404`：账本不存在
+### 16.22 账本预算列表
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/budgets?year=2026&month=3&type=expense&categoryId=8`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+查询参数：
+
+- `year`：可选；按预算年份过滤
+- `month`：可选；按预算月份过滤
+- `type`：可选，`income` / `expense`
+- `categoryId`：可选；按账本分类过滤
+
+返回：`LedgerBudgetDTO[]`
+
+`LedgerBudgetDTO` 主要字段：
+
+- `id`
+- `ledgerId`
+- `createdByUserId`
+- `categoryId`
+- `categoryName`
+- `name`
+- `periodType`：当前固定为 `monthly`
+- `budgetYear`
+- `budgetMonth`
+- `startDate`
+- `endDate`
+- `type`
+- `amount`
+- `notes`
+- `createdAt`
+- `updatedAt`
+- `progress`
+- `rules`
+
+`progress` 字段：
+
+- `spentAmount`
+- `remainingAmount`
+- `usagePercentage`
+- `exceeded`
+- `triggeredThresholdPercentages`
+
+前端注意：
+
+- 当前预算基础层只支持“月度预算”
+- 列表和详情都会直接返回预算进度与阈值规则，无需额外再拼一次进度接口
+
+### 16.23 账本预算详情
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+返回：`LedgerBudgetDTO`
+
+失败：
+
+- `403`：无权限
+- `404`：账本或预算不存在，或预算不属于该账本
+
+### 16.24 创建账本预算
+
+- Method：`POST`
+- URL：`/api/ledgers/{ledgerId}/budgets`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+请求体：
+
+```json
+{
+  "name": "March Coffee Budget",
+  "categoryId": 8,
+  "type": "expense",
+  "amount": 200,
+  "budgetYear": 2026,
+  "budgetMonth": 3,
+  "notes": "Team coffee"
+}
+```
+
+规则：
+
+- `name`：必填
+- `type`：必填，只允许 `income` / `expense`
+- `amount`：必填，必须大于 `0`
+- `budgetYear`：必填，范围 `2000-2100`
+- `budgetMonth`：必填，范围 `1-12`
+- `categoryId`：可选；如果传了，必须属于当前账本，且分类 `type` 要与预算 `type` 一致
+- 当前会自动生成该月的 `startDate` / `endDate`
+- 同一个账本下，同月 + 同类型 + 同分类范围的预算不能重复创建
+
+成功返回：`LedgerBudgetDTO`
+
+失败：
+
+- `400`：参数缺失、金额非法、年月非法、分类不属于该账本、预算类型与分类类型不一致
+- `403`：无权限
+- `404`：账本不存在
+- `409`：相同范围预算已存在
+
+### 16.25 更新账本预算
+
+- Method：`PUT`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+请求体：字段全部可选，但至少传一个
+
+说明：
+
+- 更新 `budgetYear` / `budgetMonth` 后，会自动重算该预算的 `startDate` / `endDate`
+- 当前 `categoryId` 只支持更新为另一个分类，不支持通过 `null` 主动清空成“无分类范围”
+
+失败：
+
+- `400`：请求体为空、没有更新字段、金额非法、年月非法、分类不属于该账本、预算类型与分类类型不一致
+- `403`：无权限
+- `404`：账本或预算不存在
+- `409`：更新后与现有预算范围冲突
+
+### 16.26 删除账本预算
+
+- Method：`DELETE`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+成功返回：HTTP `200` 空体
+
+### 16.27 新增预算阈值规则
+
+- Method：`POST`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}/rules`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+请求体：
+
+```json
+{
+  "thresholdPercentage": 80,
+  "enabled": true,
+  "notificationTitle": "Budget alert",
+  "notificationMessage": "Monthly budget is almost used up"
+}
+```
+
+规则：
+
+- `thresholdPercentage`：必填，范围 `(0, 200]`
+- `enabled`：可选，默认 `true`
+- 当前规则类型固定为 `threshold`
+
+成功返回：`BudgetRuleDTO`
+
+`BudgetRuleDTO` 字段：
+
+- `id`
+- `budgetId`
+- `ruleType`
+- `thresholdPercentage`
+- `enabled`
+- `notificationTitle`
+- `notificationMessage`
+- `createdAt`
+- `updatedAt`
+
+### 16.28 更新预算阈值规则
+
+- Method：`PUT`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}/rules/{ruleId}`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+请求体：字段全部可选，但至少传一个
+
+失败：
+
+- `400`：请求体为空、没有更新字段、阈值非法
+- `403`：无权限
+- `404`：账本、预算或规则不存在
+
+### 16.29 删除预算阈值规则
+
+- Method：`DELETE`
+- URL：`/api/ledgers/{ledgerId}/budgets/{budgetId}/rules/{ruleId}`
+- 认证：是
+- 权限：账本 `owner` / `admin`，或平台 `admin`
+
+成功返回：HTTP `200` 空体

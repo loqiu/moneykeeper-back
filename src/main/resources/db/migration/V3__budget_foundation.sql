@@ -1,0 +1,40 @@
+CREATE TABLE `budget` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `ledger_id` bigint NOT NULL,
+  `created_by_user_id` bigint NOT NULL,
+  `category_id` bigint DEFAULT NULL,
+  `name` varchar(100) NOT NULL,
+  `period_type` varchar(20) NOT NULL,
+  `budget_year` int NOT NULL,
+  `budget_month` int NOT NULL,
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `type` varchar(32) NOT NULL,
+  `amount` decimal(12,2) NOT NULL,
+  `notes` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` int NOT NULL DEFAULT 0,
+  `deleted_time` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_budget_ledger_period` (`ledger_id`, `budget_year`, `budget_month`, `deleted_at`),
+  KEY `idx_budget_category` (`category_id`, `deleted_at`),
+  CONSTRAINT `fk_budget_ledger` FOREIGN KEY (`ledger_id`) REFERENCES `ledger` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `fk_budget_creator` FOREIGN KEY (`created_by_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `fk_budget_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `budget_rule` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `budget_id` bigint NOT NULL,
+  `rule_type` varchar(32) NOT NULL,
+  `threshold_percentage` decimal(5,2) NOT NULL,
+  `enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `notification_title` varchar(100) DEFAULT NULL,
+  `notification_message` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_budget_rule_budget` (`budget_id`, `enabled`),
+  CONSTRAINT `fk_budget_rule_budget` FOREIGN KEY (`budget_id`) REFERENCES `budget` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
