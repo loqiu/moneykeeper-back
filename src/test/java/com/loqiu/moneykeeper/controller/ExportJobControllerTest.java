@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -71,6 +72,33 @@ class ExportJobControllerTest {
     }
 
     @Test
+    void createJobShouldReturnPendingJob() throws Exception {
+        when(ledgerService.hasActiveMembership(31L, 2L)).thenReturn(true);
+        when(exportJobService.createJob(org.mockito.ArgumentMatchers.eq(31L), org.mockito.ArgumentMatchers.eq(2L), any()))
+                .thenReturn(ExportJobDTO.builder()
+                        .id(7L)
+                        .ledgerId(31L)
+                        .requestedByUserId(2L)
+                        .fileName("ledger_31_records_2026-03-12_12-30-00.xlsx")
+                        .status("pending")
+                        .downloadUrl("/api/ledgers/31/export-jobs/7/download")
+                        .build());
+
+        mockMvc.perform(post("/api/ledgers/31/export-jobs")
+                        .contentType("application/json")
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 2L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user")
+                        .content("""
+                                {
+                                  "type": "expense"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7))
+                .andExpect(jsonPath("$.status").value("pending"));
+    }
+
+    @Test
     void listJobsShouldUseCurrentUserForMember() throws Exception {
         when(ledgerService.hasActiveMembership(31L, 2L)).thenReturn(true);
         when(exportJobService.listJobs(31L, 2L, false, 10)).thenReturn(List.of());
@@ -92,6 +120,7 @@ class ExportJobControllerTest {
                 .ledgerId(31L)
                 .requestedByUserId(2L)
                 .fileName("ledger_31_records_2026-03-12.xlsx")
+                .status("completed")
                 .build());
         when(moneyKeeperService.getAllLedgerRecordsWithCategoryName(31L, null, null, null)).thenReturn(List.<MoneyKeeperDTO>of());
 
@@ -102,5 +131,23 @@ class ExportJobControllerTest {
                 .andExpect(header().string("Content-Disposition", containsString(".xlsx")));
 
         verify(exportJobService).markJobDownloaded(7L);
+    }
+
+    @Test
+    void downloadJobShouldRejectPendingJob() throws Exception {
+        when(ledgerService.hasActiveMembership(31L, 2L)).thenReturn(true);
+        when(exportJobService.getJob(31L, 7L, 2L, false)).thenReturn(ExportJobDTO.builder()
+                .id(7L)
+                .ledgerId(31L)
+                .requestedByUserId(2L)
+                .fileName("ledger_31_records_2026-03-12.xlsx")
+                .status("pending")
+                .build());
+
+        mockMvc.perform(get("/api/ledgers/31/export-jobs/7/download")
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 2L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Export job is still processing"));
     }
 }

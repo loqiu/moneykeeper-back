@@ -21,6 +21,7 @@ It stays logically isolated by using:
 - MySQL database: `moneykeeper_platform`
 - Redis database: `1`
 - Elasticsearch index: `moneykeeper-records-platform`
+- Export job files: `./data/moneykeeper-platform/export-jobs` mounted into the app container
 
 When `main` is released, the same Flyway migrations can run against the shared production MySQL database so all final tables and data live in the main middleware stack.
 
@@ -30,6 +31,7 @@ When `main` is released, the same Flyway migrations can run against the shared p
 2. Make sure the existing middleware containers are reachable on the shared Docker network.
 3. Copy `platform.env.example` to `platform.env` and replace placeholder secrets.
 4. Create the platform database and app user inside the shared MySQL container before the first start.
+5. Make sure the export-job storage directory is writable on the host. The compose file mounts it automatically under `./data/moneykeeper-platform/export-jobs`.
 
 Example SQL:
 
@@ -66,3 +68,13 @@ For a fresh environment, new writes will sync automatically. For existing histor
 curl -X POST "http://127.0.0.1:8082/api/search/records/reindex"
 curl -X POST "http://127.0.0.1:8082/api/search/records/reindex/ledger?ledgerId=31"
 ```
+
+## Export jobs
+
+New export jobs are now asynchronous:
+
+- `POST /api/ledgers/{ledgerId}/export-jobs` queues the task as `pending`
+- the scheduler writes the workbook into the mounted export-job directory
+- the requester receives an `info` notification when the job is ready, or an `error` notification if generation fails
+
+If you change `MONEYKEEPER_EXPORT_JOB_STORAGE_DIR`, update both the environment variable and the bind mount in `docker-compose.platform.yml` so completed jobs remain downloadable after container restarts.

@@ -2138,8 +2138,10 @@ POST /api/payments/checkout-sessions
 - `userId`：可选；按账本成员过滤
 - `type`：可选；`income` / `expense`
 - `startDate` / `endDate`：可选；若同时传，结束日期不能早于开始日期
-- 当前实现会立即生成“可下载任务”，不需要额外轮询后端 worker
-- 创建成功后，系统会给创建人写入一条 `info` 通知日志，提示导出已可下载
+- 当前实现会先创建 `pending` 状态任务，由后端异步 worker 生成导出文件
+- 创建成功后，系统会先给创建人写入一条 `info` 通知日志，提示导出任务已入队
+- 任务完成后，系统会再写一条 `info` 通知日志，提示导出已可下载
+- 如果异步生成失败，任务会变成 `failed`，并给创建人写一条 `error` 通知日志
 
 成功返回：`ExportJobDTO`
 
@@ -2154,9 +2156,11 @@ POST /api/payments/checkout-sessions
 - `endDate`
 - `fileName`
 - `fileFormat`：当前固定为 `xlsx`
-- `status`：当前固定为 `completed`
+- `status`：`pending` / `running` / `completed` / `failed`
+- `errorMessage`：任务失败时的错误信息；成功任务通常为 `null`
 - `recordCount`
 - `downloadCount`
+- `startedAt`
 - `completedAt`
 - `lastDownloadedAt`
 - `createdAt`
@@ -2178,6 +2182,8 @@ POST /api/payments/checkout-sessions
 
 - 普通账本成员只会看到自己创建的导出任务
 - 平台 `admin` 可以看到当前账本下的全部导出任务
+- 前端建议轮询列表或单任务详情，直到 `status=completed` 再开放下载按钮
+- `status=failed` 时，可以直接展示 `errorMessage`
 
 成功返回：`ExportJobDTO[]`
 
@@ -2203,6 +2209,9 @@ POST /api/payments/checkout-sessions
 
 说明：
 
+- 只有 `status=completed` 的任务可以下载
+- `status=pending` / `running` 时会返回 `409`，提示任务仍在处理中
+- `status=failed` 时会返回 `409`，并尽量带上失败原因
 - 成功下载后，任务的 `downloadCount` 会自增
 - 成功下载后，任务的 `lastDownloadedAt` 会更新
 - 如果前端只想“直接下载”，仍可继续用老的 `/api/excel/ledgers/{ledgerId}/download`
@@ -2210,5 +2219,6 @@ POST /api/payments/checkout-sessions
 
 失败：
 
+- `409`：任务仍在处理中，或任务生成失败
 - `403`：不是任务创建人且不是平台 `admin`
 - `404`：账本或任务不存在

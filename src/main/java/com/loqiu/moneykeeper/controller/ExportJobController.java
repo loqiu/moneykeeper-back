@@ -5,7 +5,9 @@ import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy
 import com.loqiu.moneykeeper.dto.ExportJobDTO;
 import com.loqiu.moneykeeper.dto.MoneyKeeperDTO;
 import com.loqiu.moneykeeper.exception.BadRequestException;
+import com.loqiu.moneykeeper.exception.ConflictException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
+import com.loqiu.moneykeeper.exception.ResourceNotFoundException;
 import com.loqiu.moneykeeper.service.ExportJobService;
 import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
@@ -26,6 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
@@ -82,32 +86,69 @@ public class ExportJobController {
         requireLedgerViewer(request, ledgerId);
         Long currentUserId = RequestAuthUtil.requireCurrentUserId(request);
         ExportJobDTO job = exportJobService.getJob(ledgerId, jobId, currentUserId, RequestAuthUtil.isAdmin(request));
+        requireCompletedJob(job);
 
         try {
-            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-            String fileName = URLEncoder.encode(job.getFileName(), StandardCharsets.UTF_8);
-            response.setHeader("Content-Disposition", "attachment;filename*=UTF-8''" + fileName);
-
-            List<MoneyKeeperDTO> records = moneyKeeperService.getAllLedgerRecordsWithCategoryName(
-                    ledgerId,
-                    job.getTargetUserId(),
-                    job.getStartDate(),
-                    job.getEndDate()
-            );
-            if (job.getRecordType() != null) {
-                records = records.stream().filter(item -> job.getRecordType().equals(item.getType())).toList();
+            prepareDownloadResponse(response, job.getFileName());
+            if (StringUtils.hasText(job.getStoragePath())) {
+                downloadStoredFile(response, job.getStoragePath());
+            } else {
+                downloadLegacyJobOnDemand(ledgerId, job, response);
             }
-
-            EasyExcel.write(response.getOutputStream(), MoneyKeeperDTO.class)
-                    .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
-                    .sheet("Ledger Export")
-                    .doWrite(records);
-
             exportJobService.markJobDownloaded(jobId);
         } catch (IOException e) {
             throw new RuntimeException("Failed to generate Excel file", e);
         }
+    }
+
+    private void requireCompletedJob(ExportJobDTO job) {
+        if (job == null) {
+            throw new ResourceNotFoundException("Export job not found");
+        }
+        if ("pending".equalsIgnoreCase(job.getStatus()) || "running".equalsIgnoreCase(job.getStatus())) {
+            throw new ConflictException("Export job is still processing");
+        }
+        if ("failed".equalsIgnoreCase(job.getStatus())) {
+            String failureMessage = StringUtils.hasText(job.getErrorMessage())
+                    ? job.getErrorMessage()
+                    : "Export job failed";
+            throw new ConflictException(failureMessage);
+        }
+    }
+
+    private void prepareDownloadResponse(HttpServletResponse response, String fileName) {
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8);
+        response.setHeader("Content-Disposition", "attachment;filename*=UTF-8''" + encodedFileName);
+    }
+
+    private void downloadStoredFile(HttpServletResponse response, String storagePath) throws IOException {
+        Path filePath = Path.of(storagePath);
+        if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            throw new ResourceNotFoundException("Export file is no longer available");
+        }
+        Files.copy(filePath, response.getOutputStream());
+        response.flushBuffer();
+    }
+
+    private void downloadLegacyJobOnDemand(Long ledgerId,
+                                           ExportJobDTO job,
+                                           HttpServletResponse response) throws IOException {
+        List<MoneyKeeperDTO> records = moneyKeeperService.getAllLedgerRecordsWithCategoryName(
+                ledgerId,
+                job.getTargetUserId(),
+                job.getStartDate(),
+                job.getEndDate()
+        );
+        if (job.getRecordType() != null) {
+            records = records.stream().filter(item -> job.getRecordType().equals(item.getType())).toList();
+        }
+
+        EasyExcel.write(response.getOutputStream(), MoneyKeeperDTO.class)
+                .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+                .sheet("Ledger Export")
+                .doWrite(records);
     }
 
     private void requireLedgerViewer(HttpServletRequest request, Long ledgerId) {

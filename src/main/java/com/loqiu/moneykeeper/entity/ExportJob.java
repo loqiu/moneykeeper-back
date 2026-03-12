@@ -44,11 +44,19 @@ public class ExportJob {
 
     private String fileFormat;
 
+    @TableField("storage_path")
+    private String storagePath;
+
     private String status;
+
+    @TableField("error_message")
+    private String errorMessage;
 
     private Integer recordCount;
 
     private Integer downloadCount;
+
+    private LocalDateTime startedAt;
 
     private LocalDateTime completedAt;
 

@@ -1,5 +1,6 @@
 package com.loqiu.moneykeeper.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,9 +23,13 @@ public class ExportJobDTO {
     private LocalDate endDate;
     private String fileName;
     private String fileFormat;
+    @JsonIgnore
+    private String storagePath;
     private String status;
+    private String errorMessage;
     private Integer recordCount;
     private Integer downloadCount;
+    private LocalDateTime startedAt;
     private LocalDateTime completedAt;
     private LocalDateTime lastDownloadedAt;
     private LocalDateTime createdAt;
