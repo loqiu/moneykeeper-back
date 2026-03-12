@@ -7,10 +7,10 @@ import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.exception.BadRequestException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
 import com.loqiu.moneykeeper.exception.ResourceNotFoundException;
-import com.loqiu.moneykeeper.service.BudgetService;
 import com.loqiu.moneykeeper.service.CategoryService;
 import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
+import com.loqiu.moneykeeper.service.RecordEventDispatcher;
 import com.loqiu.moneykeeper.service.RecordSearchService;
 import com.loqiu.moneykeeper.util.RequestAuthUtil;
 import com.loqiu.moneykeeper.vo.MoneyKeeperCreateRequest;
@@ -50,10 +50,7 @@ public class LedgerRecordController {
     private LedgerService ledgerService;
 
     @Autowired
-    private RecordSearchService recordSearchService;
-
-    @Autowired
-    private BudgetService budgetService;
+    private RecordEventDispatcher recordEventDispatcher;
 
     @GetMapping
     public ResponseEntity<List<MoneyKeeper>> listRecords(@PathVariable Long ledgerId,
@@ -116,8 +113,7 @@ public class LedgerRecordController {
         record.setNotes(trimToNull(createRequest.getNotes()));
 
         moneyKeeperService.insertMoneyKeeper(record);
-        recordSearchService.syncRecordIfEnabled(record.getId());
-        budgetService.syncThresholdNotificationsForLedgerRecord(ledgerId, null, record);
+        recordEventDispatcher.dispatchRecordCreated(ledgerId, record);
         return ResponseEntity.ok(record);
     }
 
@@ -153,8 +149,7 @@ public class LedgerRecordController {
         updatedRecord.setDeletedTime(existingRecord.getDeletedTime());
 
         moneyKeeperService.updateById(updatedRecord);
-        recordSearchService.syncRecordIfEnabled(existingRecord.getId());
-        budgetService.syncThresholdNotificationsForLedgerRecord(ledgerId, existingRecord, updatedRecord);
+        recordEventDispatcher.dispatchRecordUpdated(ledgerId, existingRecord, updatedRecord);
         return ResponseEntity.ok(requireLedgerRecord(ledgerId, recordId));
     }
 
@@ -171,8 +166,7 @@ public class LedgerRecordController {
                 .set("deleted_at", 1)
                 .set("deleted_time", LocalDateTime.now());
         moneyKeeperService.update(updateWrapper);
-        recordSearchService.removeRecordIfEnabled(existingRecord.getId());
-        budgetService.syncThresholdNotificationsForLedgerRecord(ledgerId, existingRecord, null);
+        recordEventDispatcher.dispatchRecordDeleted(ledgerId, existingRecord);
         return ResponseEntity.ok().build();
     }
 

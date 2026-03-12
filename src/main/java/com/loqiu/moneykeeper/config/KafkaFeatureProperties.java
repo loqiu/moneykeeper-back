@@ -12,4 +12,5 @@ public class KafkaFeatureProperties {
     private String bootstrapServers = "localhost:9092";
     private String consumerGroupId = "Kafka-Mk-ConsumerGroup";
     private boolean listenerAutoStartup = false;
+    private String recordEventTopic = "moneykeeper-record-events";
 }

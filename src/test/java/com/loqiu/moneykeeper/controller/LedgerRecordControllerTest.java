@@ -3,11 +3,10 @@ package com.loqiu.moneykeeper.controller;
 import com.loqiu.moneykeeper.entity.Category;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.exception.GlobalExceptionHandler;
-import com.loqiu.moneykeeper.service.BudgetService;
 import com.loqiu.moneykeeper.service.CategoryService;
 import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
-import com.loqiu.moneykeeper.service.RecordSearchService;
+import com.loqiu.moneykeeper.service.RecordEventDispatcher;
 import com.loqiu.moneykeeper.util.RequestAuthUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,10 +49,7 @@ class LedgerRecordControllerTest {
     private LedgerService ledgerService;
 
     @Mock
-    private RecordSearchService recordSearchService;
-
-    @Mock
-    private BudgetService budgetService;
+    private RecordEventDispatcher recordEventDispatcher;
 
     private MockMvc mockMvc;
 
@@ -63,8 +59,7 @@ class LedgerRecordControllerTest {
         ReflectionTestUtils.setField(controller, "moneyKeeperService", moneyKeeperService);
         ReflectionTestUtils.setField(controller, "categoryService", categoryService);
         ReflectionTestUtils.setField(controller, "ledgerService", ledgerService);
-        ReflectionTestUtils.setField(controller, "recordSearchService", recordSearchService);
-        ReflectionTestUtils.setField(controller, "budgetService", budgetService);
+        ReflectionTestUtils.setField(controller, "recordEventDispatcher", recordEventDispatcher);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -106,9 +101,8 @@ class LedgerRecordControllerTest {
                 .andExpect(jsonPath("$.userId").value(2))
                 .andExpect(jsonPath("$.categoryId").value(8));
 
-        verify(recordSearchService).syncRecordIfEnabled(11L);
         ArgumentCaptor<MoneyKeeper> recordCaptor = ArgumentCaptor.forClass(MoneyKeeper.class);
-        verify(budgetService).syncThresholdNotificationsForLedgerRecord(eq(31L), org.mockito.ArgumentMatchers.isNull(), recordCaptor.capture());
+        verify(recordEventDispatcher).dispatchRecordCreated(eq(31L), recordCaptor.capture());
         assertEquals(11L, recordCaptor.getValue().getId());
         assertEquals(31L, recordCaptor.getValue().getLedgerId());
         assertEquals(2L, recordCaptor.getValue().getUserId());
@@ -184,10 +178,9 @@ class LedgerRecordControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.amount").value(20.00));
 
-        verify(recordSearchService).syncRecordIfEnabled(11L);
         ArgumentCaptor<MoneyKeeper> previousCaptor = ArgumentCaptor.forClass(MoneyKeeper.class);
         ArgumentCaptor<MoneyKeeper> currentCaptor = ArgumentCaptor.forClass(MoneyKeeper.class);
-        verify(budgetService).syncThresholdNotificationsForLedgerRecord(eq(31L), previousCaptor.capture(), currentCaptor.capture());
+        verify(recordEventDispatcher).dispatchRecordUpdated(eq(31L), previousCaptor.capture(), currentCaptor.capture());
         assertEquals(new BigDecimal("18.50"), previousCaptor.getValue().getAmount());
         assertEquals(new BigDecimal("20.00"), currentCaptor.getValue().getAmount());
     }
@@ -212,9 +205,8 @@ class LedgerRecordControllerTest {
                         .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user"))
                 .andExpect(status().isOk());
 
-        verify(recordSearchService).removeRecordIfEnabled(11L);
         ArgumentCaptor<MoneyKeeper> previousCaptor = ArgumentCaptor.forClass(MoneyKeeper.class);
-        verify(budgetService).syncThresholdNotificationsForLedgerRecord(eq(31L), previousCaptor.capture(), org.mockito.ArgumentMatchers.isNull());
+        verify(recordEventDispatcher).dispatchRecordDeleted(eq(31L), previousCaptor.capture());
         assertEquals(11L, previousCaptor.getValue().getId());
         assertNull(previousCaptor.getValue().getDeletedAt());
     }
