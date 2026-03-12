@@ -12,6 +12,9 @@ This folder contains the physical-host deployment files for the `codex/platform`
 
 - `docker-compose.platform.yml`: platform app container wired to the host's existing middleware containers
 - `platform.env.example`: example environment variables for the host
+- `prod-main-preflight.sh`: inspect the shared `moneykeeper` database before or after production cutover
+- `rehearse-main-db-migration.sh`: clone `moneykeeper` into a temporary rehearsal database and boot the new image against it
+- `PRODUCTION_CUTOVER_RUNBOOK.md`: step-by-step guide for the first production rollout onto the shared `moneykeeper` database
 
 ## Shared middleware model
 
@@ -91,3 +94,14 @@ When Kafka mode is enabled:
 
 - ledger record search refresh and budget warning notifications are eventually consistent instead of strictly in-request synchronous
 - export jobs can be kicked off by Kafka immediately after creation, while the scheduler still remains as a safety-net fallback for pending jobs
+
+## Production release prep
+
+Use these files before merging the platform work into the shared production backend:
+
+```bash
+bash deploy/prod-main-preflight.sh
+bash deploy/rehearse-main-db-migration.sh
+```
+
+The full release checklist lives in `deploy/PRODUCTION_CUTOVER_RUNBOOK.md`.
