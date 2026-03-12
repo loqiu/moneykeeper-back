@@ -13,6 +13,7 @@ import com.loqiu.moneykeeper.exception.ConflictException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
 import com.loqiu.moneykeeper.exception.ResourceNotFoundException;
 import com.loqiu.moneykeeper.mapper.ExportJobMapper;
+import com.loqiu.moneykeeper.service.ExportJobEventDispatcher;
 import com.loqiu.moneykeeper.service.ExportJobService;
 import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
@@ -61,6 +62,9 @@ public class ExportJobServiceImpl implements ExportJobService {
     @Autowired
     private ExportJobProperties exportJobProperties;
 
+    @Autowired
+    private ExportJobEventDispatcher exportJobEventDispatcher;
+
     @Override
     public List<ExportJobDTO> listJobs(Long ledgerId, Long currentUserId, boolean admin, int limit) {
         QueryWrapper<ExportJob> queryWrapper = new QueryWrapper<>();
@@ -108,6 +112,7 @@ public class ExportJobServiceImpl implements ExportJobService {
                 "Ledger export queued",
                 String.format("Your export for ledger %d has been queued. We'll notify you when it's ready.", ledgerId)
         );
+        exportJobEventDispatcher.dispatchCreated(job.getId(), ledgerId, requestedByUserId);
 
         return toDto(job);
     }
@@ -137,10 +142,17 @@ public class ExportJobServiceImpl implements ExportJobService {
                 .last("limit " + limit);
 
         for (ExportJob pendingJob : exportJobMapper.selectList(queryWrapper)) {
-            if (claimJobForProcessing(pendingJob.getId())) {
-                processJob(pendingJob.getId());
-            }
+            processPendingJobIfClaimed(pendingJob.getId());
         }
+    }
+
+    @Override
+    public boolean processPendingJobIfClaimed(Long jobId) {
+        if (!claimJobForProcessing(jobId)) {
+            return false;
+        }
+        processJob(jobId);
+        return true;
     }
 
     private boolean claimJobForProcessing(Long jobId) {

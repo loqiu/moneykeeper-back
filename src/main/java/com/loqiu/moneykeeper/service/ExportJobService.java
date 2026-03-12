@@ -13,4 +13,6 @@ public interface ExportJobService {
     ExportJobDTO createJob(Long ledgerId, Long requestedByUserId, ExportJobRequest request);
 
     void markJobDownloaded(Long jobId);
+
+    boolean processPendingJobIfClaimed(Long jobId);
 }

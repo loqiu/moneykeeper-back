@@ -85,6 +85,9 @@ Record create/update/delete can also flow through Kafka:
 
 - keep `MONEYKEEPER_KAFKA_ENABLED=false` to run record search sync and budget threshold recalculation in-process
 - set `MONEYKEEPER_KAFKA_ENABLED=true` and `MONEYKEEPER_KAFKA_LISTENER_AUTO_STARTUP=true` to publish record events to Kafka
-- use `MONEYKEEPER_KAFKA_RECORD_EVENT_TOPIC` to override the topic name if needed
+- use `MONEYKEEPER_KAFKA_RECORD_EVENT_TOPIC` and `MONEYKEEPER_KAFKA_EXPORT_JOB_TOPIC` to override topic names if needed
 
-When Kafka mode is enabled, Elasticsearch refresh and budget warning notifications are eventually consistent instead of strictly in-request synchronous.
+When Kafka mode is enabled:
+
+- ledger record search refresh and budget warning notifications are eventually consistent instead of strictly in-request synchronous
+- export jobs can be kicked off by Kafka immediately after creation, while the scheduler still remains as a safety-net fallback for pending jobs

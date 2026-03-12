@@ -96,7 +96,8 @@ public class IntegrationStatusServiceImpl implements IntegrationStatusService {
                         "bootstrapServers", kafkaFeatureProperties.getBootstrapServers(),
                         "consumerGroupId", kafkaFeatureProperties.getConsumerGroupId(),
                         "listenerAutoStartup", kafkaFeatureProperties.isListenerAutoStartup(),
-                        "recordEventTopic", kafkaFeatureProperties.getRecordEventTopic()
+                        "recordEventTopic", kafkaFeatureProperties.getRecordEventTopic(),
+                        "exportJobTopic", kafkaFeatureProperties.getExportJobTopic()
                 ))
                 .build();
     }

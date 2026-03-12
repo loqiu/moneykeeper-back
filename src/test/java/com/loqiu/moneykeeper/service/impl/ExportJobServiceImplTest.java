@@ -3,6 +3,7 @@ package com.loqiu.moneykeeper.service.impl;
 import com.loqiu.moneykeeper.config.ExportJobProperties;
 import com.loqiu.moneykeeper.dto.MoneyKeeperDTO;
 import com.loqiu.moneykeeper.entity.ExportJob;
+import com.loqiu.moneykeeper.service.ExportJobEventDispatcher;
 import com.loqiu.moneykeeper.mapper.ExportJobMapper;
 import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
@@ -46,6 +47,9 @@ class ExportJobServiceImplTest {
     @Mock
     private LedgerService ledgerService;
 
+    @Mock
+    private ExportJobEventDispatcher exportJobEventDispatcher;
+
     @TempDir
     Path tempDir;
 
@@ -64,6 +68,7 @@ class ExportJobServiceImplTest {
         ReflectionTestUtils.setField(exportJobService, "notificationService", notificationService);
         ReflectionTestUtils.setField(exportJobService, "ledgerService", ledgerService);
         ReflectionTestUtils.setField(exportJobService, "exportJobProperties", exportJobProperties);
+        ReflectionTestUtils.setField(exportJobService, "exportJobEventDispatcher", exportJobEventDispatcher);
     }
 
     @Test
@@ -89,6 +94,7 @@ class ExportJobServiceImplTest {
                 eq("Ledger export queued"),
                 eq("Your export for ledger 31 has been queued. We'll notify you when it's ready.")
         );
+        verify(exportJobEventDispatcher).dispatchCreated(7L, 31L, 2L);
     }
 
     @Test

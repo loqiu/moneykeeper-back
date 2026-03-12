@@ -13,4 +13,5 @@ public class KafkaFeatureProperties {
     private String consumerGroupId = "Kafka-Mk-ConsumerGroup";
     private boolean listenerAutoStartup = false;
     private String recordEventTopic = "moneykeeper-record-events";
+    private String exportJobTopic = "moneykeeper-export-job-events";
 }

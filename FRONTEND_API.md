@@ -2269,6 +2269,7 @@ POST /api/payments/checkout-sessions
 - `type`：可选；`income` / `expense`
 - `startDate` / `endDate`：可选；若同时传，结束日期不能早于开始日期
 - 当前实现会先创建 `pending` 状态任务，由后端异步 worker 生成导出文件
+- 如果部署环境开启了 Kafka 导出事件链路，任务会优先由 Kafka consumer 触发处理；如果 Kafka 不可用，scheduler 仍会兜底继续处理 `pending` 任务
 - 创建成功后，系统会先给创建人写入一条 `info` 通知日志，提示导出任务已入队
 - 任务完成后，系统会再写一条 `info` 通知日志，提示导出已可下载
 - 如果异步生成失败，任务会变成 `failed`，并给创建人写一条 `error` 通知日志
