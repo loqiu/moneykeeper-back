@@ -1,0 +1,42 @@
+CREATE TABLE `export_job` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `ledger_id` bigint NOT NULL,
+  `requested_by_user_id` bigint NOT NULL,
+  `target_user_id` bigint DEFAULT NULL,
+  `record_type` varchar(32) DEFAULT NULL,
+  `start_date` date DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
+  `file_name` varchar(255) NOT NULL,
+  `file_format` varchar(32) NOT NULL DEFAULT 'xlsx',
+  `status` varchar(32) NOT NULL DEFAULT 'completed',
+  `record_count` int NOT NULL DEFAULT 0,
+  `download_count` int NOT NULL DEFAULT 0,
+  `completed_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_downloaded_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_export_job_ledger_created` (`ledger_id`, `created_at`),
+  KEY `idx_export_job_requester_created` (`requested_by_user_id`, `created_at`),
+  CONSTRAINT `fk_export_job_ledger` FOREIGN KEY (`ledger_id`) REFERENCES `ledger` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT `fk_export_job_requester_user` FOREIGN KEY (`requested_by_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `fk_export_job_target_user` FOREIGN KEY (`target_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `notification_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `message` text NOT NULL,
+  `type` varchar(32) NOT NULL,
+  `channel` varchar(32) NOT NULL DEFAULT 'sse',
+  `status` varchar(32) NOT NULL DEFAULT 'sent',
+  `is_read` tinyint(1) NOT NULL DEFAULT 0,
+  `read_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_notification_log_user_read_created` (`user_id`, `is_read`, `created_at`),
+  KEY `idx_notification_log_user_type_created` (`user_id`, `type`, `created_at`),
+  CONSTRAINT `fk_notification_log_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

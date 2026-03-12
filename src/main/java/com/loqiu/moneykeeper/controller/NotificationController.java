@@ -1,5 +1,7 @@
 package com.loqiu.moneykeeper.controller;
 
+import com.loqiu.moneykeeper.dto.NotificationLogDTO;
+import com.loqiu.moneykeeper.enums.MessageType;
 import com.loqiu.moneykeeper.exception.BadRequestException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
 import com.loqiu.moneykeeper.service.NotificationService;
@@ -16,17 +18,59 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/notifications")
 public class NotificationController {
 
     private static final Logger logger = LogManager.getLogger(NotificationController.class);
+    private static final int DEFAULT_LIMIT = 20;
+    private static final int MAX_LIMIT = 100;
 
     @Autowired
     private SseEmitterService sseEmitterService;
 
     @Autowired
     private NotificationService notificationService;
+
+    @GetMapping("/logs")
+    public ResponseEntity<List<NotificationLogDTO>> listLogs(@RequestParam(required = false) Boolean unreadOnly,
+                                                             @RequestParam(required = false) String type,
+                                                             @RequestParam(required = false) Integer limit,
+                                                             HttpServletRequest request) {
+        Long currentUserId = RequestAuthUtil.requireCurrentUserId(request);
+        return ResponseEntity.ok(notificationService.listLogs(currentUserId, unreadOnly, parseMessageType(type), normalizeLimit(limit)));
+    }
+
+    @GetMapping("/logs/unread-count")
+    public ResponseEntity<Map<String, Long>> getUnreadCount(@RequestParam(required = false) String type,
+                                                            HttpServletRequest request) {
+        Long currentUserId = RequestAuthUtil.requireCurrentUserId(request);
+        return ResponseEntity.ok(Map.of("unreadCount", notificationService.countUnread(currentUserId, parseMessageType(type))));
+    }
+
+    @GetMapping("/logs/{notificationId}")
+    public ResponseEntity<NotificationLogDTO> getLog(@PathVariable Long notificationId,
+                                                     HttpServletRequest request) {
+        Long currentUserId = RequestAuthUtil.requireCurrentUserId(request);
+        return ResponseEntity.ok(notificationService.getLog(currentUserId, notificationId));
+    }
+
+    @PutMapping("/logs/{notificationId}/read")
+    public ResponseEntity<NotificationLogDTO> markAsRead(@PathVariable Long notificationId,
+                                                         HttpServletRequest request) {
+        Long currentUserId = RequestAuthUtil.requireCurrentUserId(request);
+        return ResponseEntity.ok(notificationService.markAsRead(currentUserId, notificationId));
+    }
+
+    @PutMapping("/logs/read-all")
+    public ResponseEntity<Map<String, Long>> markAllAsRead(@RequestParam(required = false) String type,
+                                                           HttpServletRequest request) {
+        Long currentUserId = RequestAuthUtil.requireCurrentUserId(request);
+        return ResponseEntity.ok(Map.of("markedCount", notificationService.markAllAsRead(currentUserId, parseMessageType(type))));
+    }
 
     @GetMapping(value = "/subscribe/{userId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(@PathVariable Long userId, HttpServletRequest request) {
@@ -122,6 +166,25 @@ public class NotificationController {
             throw new BadRequestException(message);
         }
         return value.trim();
+    }
+
+    private MessageType parseMessageType(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return MessageType.fromString(value.trim());
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException(ex.getMessage());
+        }
+    }
+
+    private int normalizeLimit(Integer requestedLimit) {
+        int limit = requestedLimit == null ? DEFAULT_LIMIT : requestedLimit;
+        if (limit < 1 || limit > MAX_LIMIT) {
+            throw new BadRequestException("Limit must be between 1 and 100");
+        }
+        return limit;
     }
 
     private void requireAdmin(HttpServletRequest request) {

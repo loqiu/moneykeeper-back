@@ -10,27 +10,38 @@ This folder contains the physical-host deployment files for the `codex/platform`
 
 ## Files
 
-- `docker-compose.platform.yml`: isolated stack for the platform test environment
+- `docker-compose.platform.yml`: platform app container wired to the host's existing middleware containers
 - `platform.env.example`: example environment variables for the host
+
+## Shared middleware model
+
+The platform deployment reuses the host's existing `mysql`, `redis`, and `elasticsearch` containers.
+It stays logically isolated by using:
+
+- MySQL database: `moneykeeper_platform`
+- Redis database: `1`
+- Elasticsearch index: `moneykeeper-records-platform`
+
+When `main` is released, the same Flyway migrations can run against the shared production MySQL database so all final tables and data live in the main middleware stack.
 
 ## Host prerequisites
 
 1. Install Docker Engine and Docker Compose.
-2. Set `vm.max_map_count=262144` on the host for Elasticsearch.
+2. Make sure the existing middleware containers are reachable on the shared Docker network.
 3. Copy `platform.env.example` to `platform.env` and replace placeholder secrets.
+4. Create the platform database and app user inside the shared MySQL container before the first start.
 
-## Default host ports
+Example SQL:
 
-- App: `8082`
-- MySQL: `3307`
-- Redis: `6380`
-- Elasticsearch: `9201`
+```sql
+CREATE DATABASE IF NOT EXISTS moneykeeper_platform
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
 
-These defaults intentionally avoid the existing production stack ports on the same host.
-
-## Important runtime note
-
-The platform stack explicitly disables Dubbo and Nacos at both the custom app-property layer and the underlying framework-property layer. This avoids `prod` profile defaults accidentally reconnecting to the host's existing Nacos registry.
+CREATE USER IF NOT EXISTS 'moneykeeper'@'%' IDENTIFIED BY 'change-me-db-password';
+GRANT ALL PRIVILEGES ON moneykeeper_platform.* TO 'moneykeeper'@'%';
+FLUSH PRIVILEGES;
+```
 
 ## Start the stack
 
@@ -43,13 +54,13 @@ docker compose --env-file deploy/platform.env -f deploy/docker-compose.platform.
 
 ```bash
 docker compose --env-file deploy/platform.env -f deploy/docker-compose.platform.yml ps
-curl http://127.0.0.1:9201
 curl http://127.0.0.1:8082/actuator/health
+curl http://127.0.0.1:9200
 ```
 
 ## Rebuild Elasticsearch records after deploy
 
-After the app is healthy, call one of these admin endpoints:
+For a fresh environment, new writes will sync automatically. For existing historical data, call one of these admin endpoints after the app is healthy:
 
 ```bash
 curl -X POST "http://127.0.0.1:8082/api/search/records/reindex"

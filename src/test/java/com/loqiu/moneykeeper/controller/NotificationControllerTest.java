@@ -1,5 +1,6 @@
 package com.loqiu.moneykeeper.controller;
 
+import com.loqiu.moneykeeper.dto.NotificationLogDTO;
 import com.loqiu.moneykeeper.enums.MessageType;
 import com.loqiu.moneykeeper.exception.GlobalExceptionHandler;
 import com.loqiu.moneykeeper.service.NotificationService;
@@ -15,9 +16,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.util.List;
+
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -41,6 +46,44 @@ class NotificationControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
+    }
+
+    @Test
+    void listLogsShouldNormalizeFilters() throws Exception {
+        when(notificationService.listLogs(1L, true, MessageType.WARNING, 10)).thenReturn(List.of(
+                NotificationLogDTO.builder()
+                        .id(9L)
+                        .userId(1L)
+                        .title("Budget")
+                        .message("Alert")
+                        .type(MessageType.WARNING)
+                        .read(false)
+                        .build()
+        ));
+
+        mockMvc.perform(get("/api/notifications/logs")
+                        .param("unreadOnly", "true")
+                        .param("type", "warning")
+                        .param("limit", "10")
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 1L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].type").value("warning"))
+                .andExpect(jsonPath("$[0].read").value(false));
+
+        verify(notificationService).listLogs(1L, true, MessageType.WARNING, 10);
+    }
+
+    @Test
+    void markAllAsReadShouldReturnMarkedCount() throws Exception {
+        when(notificationService.markAllAsRead(1L, MessageType.WARNING)).thenReturn(2L);
+
+        mockMvc.perform(put("/api/notifications/logs/read-all")
+                        .param("type", "warning")
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 1L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.markedCount").value(2));
     }
 
     @Test

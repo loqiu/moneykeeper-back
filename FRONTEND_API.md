@@ -939,6 +939,93 @@ Authorization: Bearer <token>
 
 返回形态：`ResponseEntity`
 
+### 9.8 查询通知日志
+
+- Method：`GET`
+- URL：`/api/notifications/logs?unreadOnly=true&type=warning&limit=20`
+- 认证：是
+- 权限：当前登录用户
+
+查询参数：
+
+- `unreadOnly`：可选；`true` 时只返回未读通知
+- `type`：可选；支持 `success` / `warning` / `info` / `error`
+- `limit`：可选；默认 `20`，范围 `1-100`
+
+成功返回：`NotificationLogDTO[]`
+
+`NotificationLogDTO` 字段：
+
+- `id`
+- `userId`
+- `title`
+- `message`
+- `type`
+- `channel`：当前固定为 `sse`
+- `status`：当前固定为 `sent`
+- `read`
+- `readAt`
+- `createdAt`
+- `updatedAt`
+
+说明：
+
+- 自定义发送、广播、余额预警、导出完成通知都会写入这里
+- 广播通知会按用户展开成各自的日志记录，所以前端可以直接按“我的通知”展示
+
+### 9.9 查询未读通知数量
+
+- Method：`GET`
+- URL：`/api/notifications/logs/unread-count?type=warning`
+- 认证：是
+- 权限：当前登录用户
+
+成功返回：
+
+```json
+{
+  "unreadCount": 3
+}
+```
+
+### 9.10 查询单条通知日志
+
+- Method：`GET`
+- URL：`/api/notifications/logs/{notificationId}`
+- 认证：是
+- 权限：当前登录用户
+
+失败：
+
+- `404`：通知不存在，或不属于当前用户
+
+### 9.11 标记单条通知为已读
+
+- Method：`PUT`
+- URL：`/api/notifications/logs/{notificationId}/read`
+- 认证：是
+- 权限：当前登录用户
+
+成功返回：更新后的 `NotificationLogDTO`
+
+### 9.12 全部标记为已读
+
+- Method：`PUT`
+- URL：`/api/notifications/logs/read-all?type=warning`
+- 认证：是
+- 权限：当前登录用户
+
+查询参数：
+
+- `type`：可选；如果传了，只会标记该类型通知
+
+成功返回：
+
+```json
+{
+  "markedCount": 5
+}
+```
 ### 10.1 查看连接信息
 
 - `GET /api/notifications/manage/connections`
@@ -2025,3 +2112,100 @@ POST /api/payments/checkout-sessions
 - 权限：账本 `owner` / `admin`，或平台 `admin`
 
 成功返回：HTTP `200` 空体
+### 16.30 创建账本导出任务
+
+- Method：`POST`
+- URL：`/api/ledgers/{ledgerId}/export-jobs`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+请求体：全部字段可选
+
+```json
+{
+  "userId": 2,
+  "type": "expense",
+  "startDate": "2026-03-01",
+  "endDate": "2026-03-31"
+}
+```
+
+规则：
+
+- `userId`：可选；按账本成员过滤
+- `type`：可选；`income` / `expense`
+- `startDate` / `endDate`：可选；若同时传，结束日期不能早于开始日期
+- 当前实现会立即生成“可下载任务”，不需要额外轮询后端 worker
+- 创建成功后，系统会给创建人写入一条 `info` 通知日志，提示导出已可下载
+
+成功返回：`ExportJobDTO`
+
+`ExportJobDTO` 字段：
+
+- `id`
+- `ledgerId`
+- `requestedByUserId`
+- `targetUserId`
+- `recordType`
+- `startDate`
+- `endDate`
+- `fileName`
+- `fileFormat`：当前固定为 `xlsx`
+- `status`：当前固定为 `completed`
+- `recordCount`
+- `downloadCount`
+- `completedAt`
+- `lastDownloadedAt`
+- `createdAt`
+- `updatedAt`
+- `downloadUrl`
+
+### 16.31 查询账本导出任务列表
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/export-jobs?limit=20`
+- 认证：是
+- 权限：账本成员或平台 `admin`
+
+查询参数：
+
+- `limit`：可选；默认 `20`，范围 `1-100`
+
+说明：
+
+- 普通账本成员只会看到自己创建的导出任务
+- 平台 `admin` 可以看到当前账本下的全部导出任务
+
+成功返回：`ExportJobDTO[]`
+
+### 16.32 查询单个账本导出任务
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/export-jobs/{jobId}`
+- 认证：是
+- 权限：任务创建人，或平台 `admin`
+
+失败：
+
+- `403`：不是任务创建人且不是平台 `admin`
+- `404`：账本或任务不存在
+
+### 16.33 下载账本导出任务文件
+
+- Method：`GET`
+- URL：`/api/ledgers/{ledgerId}/export-jobs/{jobId}/download`
+- 认证：是
+- 权限：任务创建人，或平台 `admin`
+- 返回：Excel 二进制文件（`attachment`）
+
+说明：
+
+- 成功下载后，任务的 `downloadCount` 会自增
+- 成功下载后，任务的 `lastDownloadedAt` 会更新
+- 如果前端只想“直接下载”，仍可继续用老的 `/api/excel/ledgers/{ledgerId}/download`
+- 如果前端需要“历史记录 + 已完成状态 + 通知提醒”，推荐改用导出任务接口
+
+失败：
+
+- `403`：不是任务创建人且不是平台 `admin`
+- `404`：账本或任务不存在
