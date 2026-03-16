@@ -2,6 +2,7 @@ package com.loqiu.moneykeeper.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
 import com.loqiu.moneykeeper.entity.Category;
 import com.loqiu.moneykeeper.exception.BadRequestException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
@@ -255,14 +256,14 @@ public class CategoryController {
     }
 
     private String resolveCategoryType(String requestedValue, String existingValue) {
-        String normalizedType = RecordTypeNormalizer.normalizeOptional(requestedValue, "Category type must be income or expense");
+        String normalizedType = RecordTypeNormalizer.normalizeOptional(requestedValue, "Category type must be income or expense", ErrorKeyConstants.CATEGORY_INVALID_TYPE);
         return normalizedType == null ? existingValue : normalizedType;
     }
 
     private String normalizeCategoryType(String value, boolean required) {
         if (!required) {
-            return RecordTypeNormalizer.normalizeOptional(value, "Category type must be income or expense");
+            return RecordTypeNormalizer.normalizeOptional(value, "Category type must be income or expense", ErrorKeyConstants.CATEGORY_INVALID_TYPE);
         }
-        return RecordTypeNormalizer.normalizeRequired(value, "Category type is required", "Category type must be income or expense");
+        return RecordTypeNormalizer.normalizeRequired(value, "Category type is required", "Category type must be income or expense", ErrorKeyConstants.CATEGORY_INVALID_TYPE);
     }
 }

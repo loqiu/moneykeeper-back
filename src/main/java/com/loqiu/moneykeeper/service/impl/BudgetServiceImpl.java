@@ -1,5 +1,7 @@
 package com.loqiu.moneykeeper.service.impl;
 
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
+import com.loqiu.moneykeeper.constant.NotificationEventKeyConstants;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.loqiu.moneykeeper.dto.BudgetProgressDTO;
@@ -424,7 +426,21 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
                 continue;
             }
 
-            notificationService.sendWarningMessage(userId, notificationTitle, notificationMessage);
+            notificationService.sendWarningMessage(
+                    userId,
+                    notificationTitle,
+                    notificationMessage,
+                    NotificationEventKeyConstants.BUDGET_THRESHOLD_REACHED,
+                    Map.of(
+                            "budgetId", budget.getId(),
+                            "budgetName", budget.getName(),
+                            "ledgerId", budget.getLedgerId(),
+                            "budgetYear", budget.getBudgetYear(),
+                            "budgetMonth", budget.getBudgetMonth(),
+                            "threshold", rule.getThresholdPercentage(),
+                            "usagePercentage", progress.getUsagePercentage()
+                    )
+            );
             rememberThresholdNotification(notificationKey, budget, progress);
         }
     }
@@ -452,7 +468,8 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
         String normalizedRecordType = RecordTypeNormalizer.normalizeRequired(
                 record.getType(),
                 "Budget type is required",
-                "Budget type must be income or expense"
+                "Budget type must be income or expense",
+                ErrorKeyConstants.RECORD_INVALID_TYPE
         );
         queryWrapper.eq("ledger_id", ledgerId)
                 .eq("budget_year", record.getTransactionDate().getYear())
@@ -576,7 +593,7 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
             throw new BadRequestException("Category must belong to the current ledger");
         }
         if (!type.equals(category.getType())) {
-            throw new BadRequestException("Budget type must match the selected category type");
+            throw new BadRequestException("Budget type must match the selected category type", ErrorKeyConstants.RECORD_TYPE_MISMATCH);
         }
         return category;
     }
@@ -602,7 +619,7 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
             queryWrapper.ne("id", budgetId);
         }
         if (count(queryWrapper) > 0) {
-            throw new ConflictException("A budget already exists for the same month, type, and category scope");
+            throw new ConflictException("A budget already exists for the same month, type, and category scope", ErrorKeyConstants.BUDGET_DUPLICATE_BUDGET);
         }
     }
 
@@ -626,7 +643,7 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
     }
 
     private String normalizeType(String type) {
-        return RecordTypeNormalizer.normalizeRequired(type, "Budget type is required", "Budget type must be income or expense");
+        return RecordTypeNormalizer.normalizeRequired(type, "Budget type is required", "Budget type must be income or expense", ErrorKeyConstants.RECORD_INVALID_TYPE);
     }
 
     private BigDecimal validateAmount(BigDecimal amount) {

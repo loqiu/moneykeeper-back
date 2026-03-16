@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data
 @Builder
@@ -18,6 +19,8 @@ public class NotificationLogDTO {
     private String title;
     private String message;
     private MessageType type;
+    private String eventKey;
+    private Map<String, Object> payload;
     private String channel;
     private String status;
     private Boolean read;

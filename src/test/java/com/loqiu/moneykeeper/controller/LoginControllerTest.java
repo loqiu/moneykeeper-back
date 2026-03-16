@@ -1,5 +1,6 @@
 package com.loqiu.moneykeeper.controller;
 
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
 import com.loqiu.moneykeeper.entity.User;
 import com.loqiu.moneykeeper.service.LoginService;
 import com.loqiu.moneykeeper.service.PasswordService;
@@ -55,6 +56,7 @@ class LoginControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.errorKey").value(ErrorKeyConstants.COMMON_BAD_REQUEST))
                 .andExpect(jsonPath("$.message").value("Username and password are required"));
     }
 
@@ -80,6 +82,7 @@ class LoginControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(409))
+                .andExpect(jsonPath("$.errorKey").value(ErrorKeyConstants.AUTH_EMAIL_EXISTS))
                 .andExpect(jsonPath("$.message").value("Email already exists"));
     }
 
@@ -90,6 +93,7 @@ class LoginControllerTest {
                         .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.errorKey").value(ErrorKeyConstants.AUTH_GOOGLE_ID_TOKEN_REQUIRED))
                 .andExpect(jsonPath("$.message").value("Google idToken is required"));
     }
 }

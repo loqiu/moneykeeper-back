@@ -1,6 +1,10 @@
 package com.loqiu.moneykeeper.response;
 
+import com.loqiu.moneykeeper.common.TraceContext;
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
+
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * Unified API response model.
@@ -11,20 +15,28 @@ public class MkApiResponse<T> {
 
     private Integer code;
     private String message;
+    private String errorKey;
+    private Map<String, Object> errorParams;
     private T data;
     private LocalDateTime timestamp;
     private String requestId;
+    private String traceId;
 
     public MkApiResponse() {
         this.timestamp = LocalDateTime.now();
         this.requestId = generateRequestId();
+        this.traceId = TraceContext.getTraceId();
+        this.errorParams = Map.of();
     }
 
     private MkApiResponse(Builder<T> builder) {
         this.timestamp = LocalDateTime.now();
         this.requestId = generateRequestId();
+        this.traceId = TraceContext.getTraceId();
         this.code = builder.code;
         this.message = builder.message;
+        this.errorKey = builder.errorKey;
+        this.errorParams = builder.errorParams == null ? Map.of() : Map.copyOf(builder.errorParams);
         this.data = builder.data;
     }
 
@@ -35,6 +47,8 @@ public class MkApiResponse<T> {
     public static class Builder<T> {
         private Integer code;
         private String message;
+        private String errorKey;
+        private Map<String, Object> errorParams;
         private T data;
 
         private Builder() {
@@ -47,6 +61,16 @@ public class MkApiResponse<T> {
 
         public Builder<T> message(String message) {
             this.message = message;
+            return this;
+        }
+
+        public Builder<T> errorKey(String errorKey) {
+            this.errorKey = errorKey;
+            return this;
+        }
+
+        public Builder<T> errorParams(Map<String, Object> errorParams) {
+            this.errorParams = errorParams;
             return this;
         }
 
@@ -83,17 +107,24 @@ public class MkApiResponse<T> {
     }
 
     public static <T> MkApiResponse<T> error(Integer code, String message) {
+        return error(code, ErrorKeyConstants.defaultForStatus(code == null ? 500 : code), Map.of(), message);
+    }
+
+    public static <T> MkApiResponse<T> error(Integer code, String errorKey, String message) {
+        return error(code, errorKey, Map.of(), message);
+    }
+
+    public static <T> MkApiResponse<T> error(Integer code, String errorKey, Map<String, Object> errorParams, String message) {
         return MkApiResponse.<T>builder()
                 .code(code)
+                .errorKey(errorKey)
+                .errorParams(errorParams)
                 .message(message)
                 .build();
     }
 
     public static <T> MkApiResponse<T> error(String message) {
-        return MkApiResponse.<T>builder()
-                .code(500)
-                .message(message)
-                .build();
+        return error(500, ErrorKeyConstants.COMMON_INTERNAL_SERVER_ERROR, Map.of(), message);
     }
 
     @Override
@@ -101,6 +132,7 @@ public class MkApiResponse<T> {
         return "MkApiResponse{" +
                 "code=" + code +
                 ", message='" + message + '\'' +
+                ", errorKey='" + errorKey + '\'' +
                 ", data=" + data +
                 '}';
     }
@@ -125,6 +157,22 @@ public class MkApiResponse<T> {
         this.message = message;
     }
 
+    public String getErrorKey() {
+        return errorKey;
+    }
+
+    public void setErrorKey(String errorKey) {
+        this.errorKey = errorKey;
+    }
+
+    public Map<String, Object> getErrorParams() {
+        return errorParams;
+    }
+
+    public void setErrorParams(Map<String, Object> errorParams) {
+        this.errorParams = errorParams;
+    }
+
     public T getData() {
         return data;
     }
@@ -139,5 +187,9 @@ public class MkApiResponse<T> {
 
     public String getRequestId() {
         return requestId;
+    }
+
+    public String getTraceId() {
+        return traceId;
     }
 }

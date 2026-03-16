@@ -2,6 +2,7 @@ package com.loqiu.moneykeeper.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.loqiu.moneykeeper.constant.NotificationEventKeyConstants;
 import com.loqiu.moneykeeper.dto.MoneyKeeperDTO;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.mapper.MoneyKeeperMapper;
@@ -116,7 +117,13 @@ public class MoneyKeeperServiceImpl extends ServiceImpl<MoneyKeeperMapper, Money
                 );
 
                 try {
-                    notificationService.sendWarningMessage(userId, "Balance warning", warningMessage);
+                    notificationService.sendWarningMessage(
+                            userId,
+                            "Balance warning",
+                            warningMessage,
+                            NotificationEventKeyConstants.RECORD_BALANCE_WARNING,
+                            Map.of("userId", userId, "balance", balance, "totalIncome", totalIncome)
+                    );
                     redisTemplate.opsForValue().set(warningCountKey, String.valueOf(count + 1));
                     logger.info("Balance warning sent - userId: {}, count: {}/{}", userId, count + 1, MAX_WARNING_COUNT);
                 } catch (Exception e) {

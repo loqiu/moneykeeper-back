@@ -1,6 +1,7 @@
 package com.loqiu.moneykeeper.service.impl;
 
 import com.loqiu.moneykeeper.config.ExportJobProperties;
+import com.loqiu.moneykeeper.constant.NotificationEventKeyConstants;
 import com.loqiu.moneykeeper.dto.MoneyKeeperDTO;
 import com.loqiu.moneykeeper.entity.ExportJob;
 import com.loqiu.moneykeeper.service.ExportJobEventDispatcher;
@@ -24,6 +25,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -92,7 +94,9 @@ class ExportJobServiceImplTest {
         verify(notificationService).sendInfoMessage(
                 eq(2L),
                 eq("Ledger export queued"),
-                eq("Your export for ledger 31 has been queued. We'll notify you when it's ready.")
+                eq("Your export for ledger 31 has been queued. We'll notify you when it's ready."),
+                eq(NotificationEventKeyConstants.EXPORT_JOB_QUEUED),
+                eq(Map.of("ledgerId", 31L, "jobId", 7L))
         );
         verify(exportJobEventDispatcher).dispatchCreated(7L, 31L, 2L);
     }
@@ -142,7 +146,9 @@ class ExportJobServiceImplTest {
         verify(notificationService).sendInfoMessage(
                 eq(2L),
                 eq("Ledger export ready"),
-                eq("Your export for ledger 31 is ready to download (1 records).")
+                eq("Your export for ledger 31 is ready to download (1 records)."),
+                eq(NotificationEventKeyConstants.EXPORT_JOB_READY),
+                eq(Map.of("ledgerId", 31L, "jobId", 7L, "recordCount", 1))
         );
     }
 }

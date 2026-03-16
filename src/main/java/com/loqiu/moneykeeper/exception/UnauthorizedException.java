@@ -1,16 +1,26 @@
 package com.loqiu.moneykeeper.exception;
 
-public class UnauthorizedException extends RuntimeException {
-    
+import java.util.Map;
+
+public class UnauthorizedException extends ApiBusinessException {
+
     public UnauthorizedException() {
-        super("未授权的访问");
+        super("Unauthorized");
     }
 
     public UnauthorizedException(String message) {
         super(message);
     }
 
-    public UnauthorizedException(String message, Throwable cause) {
-        super(message, cause);
+    public UnauthorizedException(String message, String errorKey) {
+        super(message, errorKey);
     }
-} 
+
+    public UnauthorizedException(String message, String errorKey, Map<String, Object> errorParams) {
+        super(message, errorKey, errorParams);
+    }
+
+    public UnauthorizedException(String message, Throwable cause) {
+        super(message, cause, null, null);
+    }
+}

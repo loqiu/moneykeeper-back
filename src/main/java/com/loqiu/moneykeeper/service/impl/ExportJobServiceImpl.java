@@ -2,6 +2,8 @@ package com.loqiu.moneykeeper.service.impl;
 
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
+import com.loqiu.moneykeeper.constant.NotificationEventKeyConstants;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.loqiu.moneykeeper.config.ExportJobProperties;
@@ -34,6 +36,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -110,7 +113,9 @@ public class ExportJobServiceImpl implements ExportJobService {
         notificationService.sendInfoMessage(
                 requestedByUserId,
                 "Ledger export queued",
-                String.format("Your export for ledger %d has been queued. We'll notify you when it's ready.", ledgerId)
+                String.format("Your export for ledger %d has been queued. We'll notify you when it's ready.", ledgerId),
+                NotificationEventKeyConstants.EXPORT_JOB_QUEUED,
+                Map.of("ledgerId", ledgerId, "jobId", job.getId())
         );
         exportJobEventDispatcher.dispatchCreated(job.getId(), ledgerId, requestedByUserId);
 
@@ -124,7 +129,7 @@ public class ExportJobServiceImpl implements ExportJobService {
             throw new ResourceNotFoundException("Export job not found");
         }
         if (!STATUS_COMPLETED.equalsIgnoreCase(job.getStatus())) {
-            throw new ConflictException("Export job is not ready to download");
+            throw new ConflictException("Export job is not ready to download", ErrorKeyConstants.EXPORT_JOB_NOT_READY);
         }
         int currentCount = job.getDownloadCount() == null ? 0 : job.getDownloadCount();
         job.setDownloadCount(currentCount + 1);
@@ -203,7 +208,9 @@ public class ExportJobServiceImpl implements ExportJobService {
             notificationService.sendInfoMessage(
                     job.getRequestedByUserId(),
                     "Ledger export ready",
-                    String.format("Your export for ledger %d is ready to download (%d records).", job.getLedgerId(), records.size())
+                    String.format("Your export for ledger %d is ready to download (%d records).", job.getLedgerId(), records.size()),
+                    NotificationEventKeyConstants.EXPORT_JOB_READY,
+                    Map.of("ledgerId", job.getLedgerId(), "jobId", job.getId(), "recordCount", records.size())
             );
         } catch (Exception e) {
             if (storagePath != null) {
@@ -232,7 +239,13 @@ public class ExportJobServiceImpl implements ExportJobService {
             notificationService.sendErrorMessage(
                     job.getRequestedByUserId(),
                     "Ledger export failed",
-                    String.format("Your export for ledger %d failed. %s", job.getLedgerId(), defaultIfBlank(job.getErrorMessage(), "Please try again."))
+                    String.format("Your export for ledger %d failed. %s", job.getLedgerId(), defaultIfBlank(job.getErrorMessage(), "Please try again.")),
+                    NotificationEventKeyConstants.EXPORT_JOB_FAILED,
+                    Map.of(
+                            "ledgerId", job.getLedgerId(),
+                            "jobId", job.getId(),
+                            "errorMessage", defaultIfBlank(job.getErrorMessage(), "Please try again.")
+                    )
             );
         }
     }

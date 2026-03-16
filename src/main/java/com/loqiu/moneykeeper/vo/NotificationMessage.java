@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Map;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -15,4 +17,6 @@ public class NotificationMessage {
     private MessageType type;
     private Long timestamp;
     private String title;
-} 
+    private String eventKey;
+    private Map<String, Object> payload;
+}

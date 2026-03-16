@@ -1,16 +1,16 @@
 package com.loqiu.moneykeeper.util;
 
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
 import com.loqiu.moneykeeper.exception.PaymentException;
 import com.loqiu.moneykeeper.response.MkApiResponse;
-//import org.rochetec.model.response.PayApiResponse;
+
+import java.util.Map;
 
 public class MkApiResponseUtil {
     private static final Integer SUCCESS_CODE = 200;
     private static final Integer ERROR_CODE = 500;
-    private static final String SUCCESS_MESSAGE = "操作成功";
-    private static final String ERROR_MESSAGE = "操作失败";
+    private static final String SUCCESS_MESSAGE = "Operation succeeded";
 
-    // 成功响应，带数据
     public static <T> MkApiResponse<T> success(T data) {
         return MkApiResponse.<T>builder()
                 .code(SUCCESS_CODE)
@@ -19,7 +19,6 @@ public class MkApiResponseUtil {
                 .build();
     }
 
-    // 成功响应，带消息和数据
     public static <T> MkApiResponse<T> success(String message, T data) {
         return MkApiResponse.<T>builder()
                 .code(SUCCESS_CODE)
@@ -28,67 +27,43 @@ public class MkApiResponseUtil {
                 .build();
     }
 
-    // 成功响应，不带数据
     public static <T> MkApiResponse<T> success() {
         return success(null);
     }
 
-    // 错误响应，带消息
     public static <T> MkApiResponse<T> error(String message) {
-        return MkApiResponse.<T>builder()
-                .code(ERROR_CODE)
-                .message(message)
-                .build();
+        return MkApiResponse.error(ERROR_CODE, ErrorKeyConstants.COMMON_INTERNAL_SERVER_ERROR, Map.of(), message);
     }
 
-    // 错误响应，带错误码和消息
     public static <T> MkApiResponse<T> error(int code, String message) {
-        return MkApiResponse.<T>builder()
-                .code(code)
-                .message(message)
-                .build();
+        return MkApiResponse.error(code, message);
     }
 
-    // 从异常创建错误响应
+    public static <T> MkApiResponse<T> error(int code, String errorKey, String message) {
+        return MkApiResponse.error(code, errorKey, Map.of(), message);
+    }
+
+    public static <T> MkApiResponse<T> error(int code, String errorKey, Map<String, Object> errorParams, String message) {
+        return MkApiResponse.error(code, errorKey, errorParams, message);
+    }
+
     public static <T> MkApiResponse<T> error(PaymentException e) {
-        return MkApiResponse.<T>builder()
-                .code(e.getCode())
-                .message(e.getMessage())
-                .build();
+        return MkApiResponse.error(e.getCode(), "payment.processing_failed", Map.of(), e.getMessage());
     }
 
-    // 从通用异常创建错误响应
     public static <T> MkApiResponse<T> error(Exception e) {
-        return MkApiResponse.<T>builder()
-                .code(ERROR_CODE)
-                .message(e.getMessage())
-                .build();
+        return MkApiResponse.error(ERROR_CODE, ErrorKeyConstants.COMMON_INTERNAL_SERVER_ERROR, Map.of(), e.getMessage());
     }
 
-    // 判断响应是否成功
     public static boolean isSuccess(MkApiResponse<?> response) {
         return response != null && response.getCode() == SUCCESS_CODE;
     }
 
-    // 从支付服务响应转换为本地响应
-//    public static <T> MkApiResponse<T> fromPaymentResponse(PayApiResponse<T> response) {
-//        if (response == null) {
-//            return error("支付服务响应为空");
-//        }
-//        return MkApiResponse.<T>builder()
-//                .code(response.getCode())
-//                .message(response.getMessage())
-//                .data(response.getData())
-//                .build();
-//    }
-
-    // 创建支付相关的错误响应
     public static <T> MkApiResponse<T> paymentError(String operation, String message) {
-        return error(String.format("%s失败: %s", operation, message));
+        return error("Payment " + operation + " failed: " + message);
     }
 
-    // 创建支付相关的成功响应
     public static <T> MkApiResponse<T> paymentSuccess(String operation, T data) {
-        return success(String.format("%s成功", operation), data);
+        return success("Payment " + operation + " succeeded", data);
     }
 }

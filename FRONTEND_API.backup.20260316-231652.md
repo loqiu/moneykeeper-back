@@ -71,6 +71,8 @@ Unauthorized
 {
   "status": 400,
   "error": "Bad Request",
+  "errorKey": "record.type_mismatch",
+  "errorParams": {},
   "message": "具体错误信息",
   "path": "/api/xxx",
   "timestamp": "2026-03-10T02:00:00",
@@ -78,7 +80,11 @@ Unauthorized
 }
 ```
 
-补充说明：`ApiErrorResponse` 中会携带 `traceId`，响应头也会返回同一个 `traceId`，前端记录报错时建议一并带上。
+补充说明：
+
+- `ApiErrorResponse` 中会携带 `traceId`，响应头也会返回同一个 `traceId`，前端记录报错时建议一并带上
+- `errorKey` 是前端 i18n 的主键
+- `errorParams` 始终返回对象，空值时也是 `{}`，不要按 `null` 处理
 
 #### C. `MkApiResponse<T>`
 
@@ -88,16 +94,20 @@ Unauthorized
 {
   "code": 200,
   "message": "Operation succeeded",
+  "errorKey": null,
+  "errorParams": {},
   "data": {},
   "timestamp": "2026-03-10T02:00:00",
-  "requestId": "REQ-1741572000000"
+  "requestId": "REQ-1741572000000",
+  "traceId": "TRACE-20260311-0001"
 }
 ```
 
 注意：
 
 - `MkApiResponse` 需要同时判断 HTTP 状态码和 `code`
-- 即使某些接口业务失败，HTTP 也可能仍然是 `200`，失败信息在 `code/message`
+- 即使某些接口业务失败，HTTP 也可能仍然是 `200`，失败信息在 `code/errorKey/message`
+- `MkApiResponse` 业务失败分支同样会带 `errorKey` 和 `errorParams`
 - 但如果 JSON 解析失败，这类接口也可能直接返回 `400 + ApiErrorResponse`
 
 ## 2. 统一错误码说明
@@ -895,6 +905,10 @@ Authorization: Bearer <token>
   "title": "Budget alert",
   "message": "You are near the limit",
   "type": "warning",
+  "eventKey": "budget.threshold_reached",
+  "payload": {
+    "budgetId": 41
+  },
   "timestamp": 1741572000000
 }
 ```
@@ -907,6 +921,13 @@ Authorization: Bearer <token>
 - `error`
 - `heartbeat`
 - `connect`
+
+补充说明：
+
+- `eventKey`：可选，业务事件键，前端 i18n 应优先使用它
+- `payload`：可选，插值参数；始终按对象处理，空值可视为 `{}`
+- `message`：fallback 文本
+- 当前已使用的事件键包括：`budget.threshold_reached`、`export.job_queued`、`export.job_ready`、`export.job_failed`、`record.balance_warning`
 
 失败：
 
@@ -968,6 +989,8 @@ Authorization: Bearer <token>
 - `title`
 - `message`
 - `type`
+- `eventKey`：业务事件键
+- `payload`：对象，插值参数；空值返回 `{}`
 - `channel`：当前固定为 `sse`
 - `status`：当前固定为 `sent`
 - `read`
@@ -979,6 +1002,7 @@ Authorization: Bearer <token>
 
 - 自定义发送、广播、余额预警、导出完成通知都会写入这里
 - 广播通知会按用户展开成各自的日志记录，所以前端可以直接按“我的通知”展示
+- 前端展示顺序建议：先看 `eventKey + payload`，没有对应翻译时再回退到 `message`
 
 ### 9.9 查询未读通知数量
 

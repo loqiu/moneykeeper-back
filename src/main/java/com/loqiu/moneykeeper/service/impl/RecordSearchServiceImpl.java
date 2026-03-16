@@ -1,5 +1,6 @@
 package com.loqiu.moneykeeper.service.impl;
 
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
@@ -415,7 +416,7 @@ public class RecordSearchServiceImpl implements RecordSearchService {
         }
         if (StringUtils.hasText(type)) {
             boolQuery.filter(filter -> filter.term(term -> term.field("type.keyword")
-                    .value(RecordTypeNormalizer.normalizeRequired(type, "Record type is required", "Record type must be income or expense"))));
+                    .value(RecordTypeNormalizer.normalizeRequired(type, "Record type is required", "Record type must be income or expense", ErrorKeyConstants.RECORD_INVALID_TYPE))));
         }
         if (StringUtils.hasText(categoryName)) {
             boolQuery.filter(filter -> filter.term(term -> term.field("categoryName.keyword").value(categoryName.trim())));

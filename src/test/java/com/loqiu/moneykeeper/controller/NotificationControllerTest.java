@@ -17,7 +17,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
+import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -57,6 +59,8 @@ class NotificationControllerTest {
                         .title("Budget")
                         .message("Alert")
                         .type(MessageType.WARNING)
+                        .eventKey("budget.threshold_reached")
+                        .payload(Map.of("budgetId", 41, "threshold", 40))
                         .read(false)
                         .build()
         ));
@@ -69,6 +73,8 @@ class NotificationControllerTest {
                         .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].type").value("warning"))
+                .andExpect(jsonPath("$[0].eventKey").value("budget.threshold_reached"))
+                .andExpect(jsonPath("$[0].payload.budgetId").value(41))
                 .andExpect(jsonPath("$[0].read").value(false));
 
         verify(notificationService).listLogs(1L, true, MessageType.WARNING, 10);
@@ -96,13 +102,24 @@ class NotificationControllerTest {
                                 {
                                   "title": " Budget ",
                                   "message": " Alert ",
-                                  "type": "warning"
+                                  "type": "warning",
+                                  "eventKey": "budget.threshold_reached",
+                                  "payload": {
+                                    "budgetId": 41
+                                  }
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(content().string("Message sent"));
 
-        verify(notificationService).sendMessage(1L, "Budget", "Alert", MessageType.WARNING);
+        verify(notificationService).sendMessage(
+                eq(1L),
+                eq("Budget"),
+                eq("Alert"),
+                eq(MessageType.WARNING),
+                eq("budget.threshold_reached"),
+                eq(Map.of("budgetId", 41))
+        );
     }
 
     @Test

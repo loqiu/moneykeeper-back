@@ -2,6 +2,7 @@ package com.loqiu.moneykeeper.controller;
 
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
 import com.loqiu.moneykeeper.dto.ExportJobDTO;
 import com.loqiu.moneykeeper.dto.MoneyKeeperDTO;
 import com.loqiu.moneykeeper.exception.BadRequestException;
@@ -106,13 +107,13 @@ public class ExportJobController {
             throw new ResourceNotFoundException("Export job not found");
         }
         if ("pending".equalsIgnoreCase(job.getStatus()) || "running".equalsIgnoreCase(job.getStatus())) {
-            throw new ConflictException("Export job is still processing");
+            throw new ConflictException("Export job is still processing", ErrorKeyConstants.EXPORT_JOB_NOT_READY);
         }
         if ("failed".equalsIgnoreCase(job.getStatus())) {
             String failureMessage = StringUtils.hasText(job.getErrorMessage())
                     ? job.getErrorMessage()
                     : "Export job failed";
-            throw new ConflictException(failureMessage);
+            throw new ConflictException(failureMessage, ErrorKeyConstants.EXPORT_JOB_NOT_READY);
         }
     }
 

@@ -2,6 +2,7 @@ package com.loqiu.moneykeeper.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
 import com.loqiu.moneykeeper.entity.Category;
 import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.exception.BadRequestException;
@@ -305,7 +306,7 @@ public class LedgerRecordController {
         String normalizedRequestedType = normalizeRecordType(requestedType, true);
         String normalizedCategoryType = normalizeRecordType(categoryType, true);
         if (!normalizedRequestedType.equals(normalizedCategoryType)) {
-            throw new BadRequestException("Record type must match the selected category type");
+            throw new BadRequestException("Record type must match the selected category type", ErrorKeyConstants.RECORD_TYPE_MISMATCH);
         }
     }
 
@@ -342,8 +343,8 @@ public class LedgerRecordController {
 
     private String normalizeRecordType(String value, boolean required) {
         if (!required) {
-            return RecordTypeNormalizer.normalizeOptional(value, "Record type must be income or expense");
+            return RecordTypeNormalizer.normalizeOptional(value, "Record type must be income or expense", ErrorKeyConstants.RECORD_INVALID_TYPE);
         }
-        return RecordTypeNormalizer.normalizeRequired(value, "Record type is required", "Record type must be income or expense");
+        return RecordTypeNormalizer.normalizeRequired(value, "Record type is required", "Record type must be income or expense", ErrorKeyConstants.RECORD_INVALID_TYPE);
     }
 }

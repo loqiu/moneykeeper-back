@@ -32,6 +32,12 @@ public class NotificationLog {
 
     private String type;
 
+    @TableField("event_key")
+    private String eventKey;
+
+    @TableField("payload_json")
+    private String payloadJson;
+
     private String channel;
 
     private String status;

@@ -1,5 +1,6 @@
 package com.loqiu.moneykeeper.service.impl;
 
+import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.loqiu.moneykeeper.dto.NotificationLogDTO;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class NotificationServiceImpl implements NotificationService {
@@ -32,9 +34,20 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void sendMessage(Long userId, String title, String message, MessageType type) {
+        sendMessage(userId, title, message, type, null, Map.of());
+    }
+
+    @Override
+    public void sendMessage(Long userId,
+                            String title,
+                            String message,
+                            MessageType type,
+                            String eventKey,
+                            Map<String, Object> payload) {
         MessageType safeType = type == null ? MessageType.INFO : type;
-        persistLog(userId, title, message, safeType);
-        sseEmitterService.sendMessage(userId, buildRealtimeMessage(title, message, safeType));
+        Map<String, Object> safePayload = normalizePayload(payload);
+        persistLog(userId, title, message, safeType, eventKey, safePayload);
+        sseEmitterService.sendMessage(userId, buildRealtimeMessage(title, message, safeType, eventKey, safePayload));
     }
 
     @Override
@@ -53,18 +66,43 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    public void sendInfoMessage(Long userId, String title, String message, String eventKey, Map<String, Object> payload) {
+        sendMessage(userId, title, message, MessageType.INFO, eventKey, payload);
+    }
+
+    @Override
     public void sendWarningMessage(Long userId, String title, String message) {
         sendMessage(userId, title, message, MessageType.WARNING);
     }
 
     @Override
+    public void sendWarningMessage(Long userId, String title, String message, String eventKey, Map<String, Object> payload) {
+        sendMessage(userId, title, message, MessageType.WARNING, eventKey, payload);
+    }
+
+    @Override
+    public void sendErrorMessage(Long userId, String title, String message, String eventKey, Map<String, Object> payload) {
+        sendMessage(userId, title, message, MessageType.ERROR, eventKey, payload);
+    }
+
+    @Override
     public void broadcastMessage(String title, String message, MessageType type) {
+        broadcastMessage(title, message, type, null, Map.of());
+    }
+
+    @Override
+    public void broadcastMessage(String title,
+                                 String message,
+                                 MessageType type,
+                                 String eventKey,
+                                 Map<String, Object> payload) {
         MessageType safeType = type == null ? MessageType.INFO : type;
+        Map<String, Object> safePayload = normalizePayload(payload);
         List<User> users = userMapper.selectList(new QueryWrapper<User>().eq("deleted_at", 0));
         for (User user : users) {
-            persistLog(user.getId(), title, message, safeType);
+            persistLog(user.getId(), title, message, safeType, eventKey, safePayload);
         }
-        sseEmitterService.sendMessageToAll(buildRealtimeMessage(title, message, safeType));
+        sseEmitterService.sendMessageToAll(buildRealtimeMessage(title, message, safeType, eventKey, safePayload));
     }
 
     @Override
@@ -159,11 +197,22 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     private NotificationLog persistLog(Long userId, String title, String message, MessageType type) {
+        return persistLog(userId, title, message, type, null, Map.of());
+    }
+
+    private NotificationLog persistLog(Long userId,
+                                       String title,
+                                       String message,
+                                       MessageType type,
+                                       String eventKey,
+                                       Map<String, Object> payload) {
         NotificationLog log = NotificationLog.builder()
                 .userId(userId)
                 .title(title)
                 .message(message)
                 .type(type.getType())
+                .eventKey(eventKey)
+                .payloadJson(toPayloadJson(payload))
                 .channel("sse")
                 .status("sent")
                 .isRead(false)
@@ -172,11 +221,17 @@ public class NotificationServiceImpl implements NotificationService {
         return log;
     }
 
-    private NotificationMessage buildRealtimeMessage(String title, String message, MessageType type) {
+    private NotificationMessage buildRealtimeMessage(String title,
+                                                     String message,
+                                                     MessageType type,
+                                                     String eventKey,
+                                                     Map<String, Object> payload) {
         return NotificationMessage.builder()
                 .title(title)
                 .message(message)
                 .type(type)
+                .eventKey(eventKey)
+                .payload(normalizePayload(payload))
                 .timestamp(System.currentTimeMillis())
                 .build();
     }
@@ -188,6 +243,8 @@ public class NotificationServiceImpl implements NotificationService {
                 .title(log.getTitle())
                 .message(log.getMessage())
                 .type(MessageType.fromString(log.getType()))
+                .eventKey(log.getEventKey())
+                .payload(parsePayload(log.getPayloadJson()))
                 .channel(log.getChannel())
                 .status(log.getStatus())
                 .read(Boolean.TRUE.equals(log.getIsRead()))
@@ -195,5 +252,26 @@ public class NotificationServiceImpl implements NotificationService {
                 .createdAt(log.getCreatedAt())
                 .updatedAt(log.getUpdatedAt())
                 .build();
+    }
+
+    private String toPayloadJson(Map<String, Object> payload) {
+        Map<String, Object> safePayload = normalizePayload(payload);
+        return safePayload.isEmpty() ? "{}" : JSON.toJSONString(safePayload);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parsePayload(String payloadJson) {
+        if (payloadJson == null || payloadJson.isBlank()) {
+            return Map.of();
+        }
+        Map<String, Object> parsed = JSON.parseObject(payloadJson, Map.class);
+        return parsed == null ? Map.of() : Map.copyOf(parsed);
+    }
+
+    private Map<String, Object> normalizePayload(Map<String, Object> payload) {
+        if (payload == null || payload.isEmpty()) {
+            return Map.of();
+        }
+        return Map.copyOf(payload);
     }
 }

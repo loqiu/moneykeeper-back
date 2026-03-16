@@ -1,5 +1,6 @@
 package com.loqiu.moneykeeper.controller;
 
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
 import com.loqiu.moneykeeper.dto.RecordSearchResultDTO;
 import com.loqiu.moneykeeper.exception.BadRequestException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
@@ -56,7 +57,7 @@ public class LedgerRecordSearchController {
                 ledgerId,
                 searchRequest.getUserId(),
                 searchRequest.getQuery(),
-                RecordTypeNormalizer.normalizeOptional(searchRequest.getType(), "Record type must be income or expense"),
+                RecordTypeNormalizer.normalizeOptional(searchRequest.getType(), "Record type must be income or expense", ErrorKeyConstants.RECORD_INVALID_TYPE),
                 searchRequest.getCategoryId(),
                 searchRequest.getCategoryName(),
                 searchRequest.getStartDate(),

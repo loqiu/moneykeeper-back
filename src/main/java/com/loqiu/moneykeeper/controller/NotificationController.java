@@ -88,7 +88,14 @@ public class NotificationController {
                 userId, RequestAuthUtil.getCurrentUserId(request), message == null ? null : message.getTitle());
         requireSelfOrAdmin(request, userId);
         NotificationMessage validMessage = requireNotificationMessage(message);
-        notificationService.sendMessage(userId, validMessage.getTitle(), validMessage.getMessage(), validMessage.getType());
+        notificationService.sendMessage(
+                userId,
+                validMessage.getTitle(),
+                validMessage.getMessage(),
+                validMessage.getType(),
+                validMessage.getEventKey(),
+                validMessage.getPayload()
+        );
         return ResponseEntity.ok("Message sent");
     }
 
@@ -98,7 +105,13 @@ public class NotificationController {
                 RequestAuthUtil.getCurrentUserId(request), message == null ? null : message.getTitle());
         requireAdmin(request);
         NotificationMessage validMessage = requireNotificationMessage(message);
-        notificationService.broadcastMessage(validMessage.getTitle(), validMessage.getMessage(), validMessage.getType());
+        notificationService.broadcastMessage(
+                validMessage.getTitle(),
+                validMessage.getMessage(),
+                validMessage.getType(),
+                validMessage.getEventKey(),
+                validMessage.getPayload()
+        );
         return ResponseEntity.ok("Broadcast sent");
     }
 
@@ -157,6 +170,8 @@ public class NotificationController {
                 .title(title)
                 .message(content)
                 .type(message.getType())
+                .eventKey(message.getEventKey())
+                .payload(message.getPayload() == null ? Map.of() : Map.copyOf(message.getPayload()))
                 .timestamp(message.getTimestamp())
                 .build();
     }

@@ -22,9 +22,8 @@
 
 当前仍然缺失的部分：
 
-- 错误响应缺少稳定 `errorKey`
-- 错误响应缺少 `errorParams`
-- 通知和预算提醒缺少 `eventKey + payload`
+- 高频业务接口还需要继续补齐专用 `errorKey`
+- 高频错误响应还需要继续补齐 `errorParams`
 - API 文档还没有完整列出错误键和事件键
 
 ## 3. 协议层原则
@@ -89,15 +88,37 @@
 }
 ```
 
+对于 `MkApiResponse<T>` 风格接口，业务失败分支也应遵循同样原则，至少保持：
+
+```json
+{
+  "code": 409,
+  "errorKey": "budget.duplicate_budget",
+  "errorParams": {
+    "year": 2026,
+    "month": 3
+  },
+  "message": "A budget already exists for the same month, type, and category scope",
+  "traceId": "TRACE-..."
+}
+```
+
 字段说明：
 
 - `status`：HTTP 状态码语义
+- `code`：`MkApiResponse` 业务状态码
 - `errorKey`：稳定、语言无关的错误键
 - `errorParams`：前端翻译时需要插值的参数
 - `message`：fallback 文本
 - `path`：请求路径
 - `timestamp`：时间戳
 - `traceId`：排障用
+
+约束：
+
+- `ApiErrorResponse` 和 `MkApiResponse` 的失败分支都必须带 `errorKey`
+- `errorParams` 字段始终返回对象，空值时返回 `{}`，不返回 `null`
+- `traceId` 必须保留
 
 ### 4.2 为什么保留 `message`
 
@@ -113,7 +134,25 @@
 - 前端优先使用 `errorKey + errorParams`
 - `message` 仅作为 fallback
 
-### 4.3 第一批应补的错误键
+### 4.3 `errorKey` 命名规则
+
+错误键命名统一遵循：
+
+- 全小写
+- 使用点分层级
+- 命名空间固定
+- 一旦发布，不随文案调整而变化
+
+示例：
+
+- `common.bad_request`
+- `auth.invalid_credentials`
+- `record.type_mismatch`
+- `ledger.invite.already_member`
+- `budget.duplicate_budget`
+- `export.job_not_ready`
+
+### 4.4 第一批应补的错误键
 
 建议优先覆盖这些高频错误：
 
@@ -155,12 +194,26 @@
 }
 ```
 
+说明：
+
+- `type`：UI 风格层级，例如 `info/warning/success/error`
+- `eventKey`：业务语义键
+- `payload`：前端翻译插值参数
+- `message`：fallback 文本
+
+约束：
+
+- `eventKey` 命名规则与 `errorKey` 一致
+- `payload` 字段始终返回对象，空值时返回 `{}`，不返回 `null`
+- `payload` 字段名和类型需要保持稳定
+
 ### 5.2 前端使用规则
 
 前端处理顺序：
 
 1. 优先使用 `eventKey + payload`
 2. 如果没有对应翻译，则使用 `message`
+3. 不要直接把 `eventKey` 当展示文案
 
 ### 5.3 第一批建议补的事件键
 
@@ -178,7 +231,8 @@
 - 哪些字段是协议枚举
 - 哪些字段只允许英文标准值
 - 哪些错误会返回 `errorKey`
-- 哪些通知会返回 `eventKey`
+- 哪些接口是 `MkApiResponse`，其失败分支同样带 `errorKey`
+- 哪些通知会返回 `type + eventKey + payload + message`
 - 哪些字段只是 fallback message
 
 ## 7. 实施顺序

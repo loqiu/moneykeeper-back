@@ -1,5 +1,6 @@
 package com.loqiu.moneykeeper.controller;
 
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
 import com.loqiu.moneykeeper.entity.User;
 import com.loqiu.moneykeeper.response.MkApiResponse;
 import com.loqiu.moneykeeper.service.LoginService;
@@ -18,6 +19,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 @RestController
@@ -46,19 +48,19 @@ public class LoginController {
         logger.info("Processing login request - username: {}", username);
         if (!StringUtils.hasText(username) || loginRequest == null || !StringUtils.hasText(loginRequest.getPassword())) {
             logger.warn("Login rejected because username or password is missing");
-            return MkApiResponse.error(400, "Username and password are required");
+            return MkApiResponse.error(400, ErrorKeyConstants.COMMON_BAD_REQUEST, Map.of(), "Username and password are required");
         }
 
         try {
             User user = userService.findByUsername(username);
             if (user == null) {
                 logger.warn("Login failed - user not found - username: {}", username);
-                return MkApiResponse.error(404, "User not found");
+                return MkApiResponse.error(404, ErrorKeyConstants.AUTH_USER_NOT_FOUND, Map.of("username", username), "User not found");
             }
 
             if (!passwordService.matches(loginRequest.getPassword(), user.getPassword())) {
                 logger.warn("Login failed - incorrect password - username: {}", username);
-                return MkApiResponse.error(401, "Incorrect password");
+                return MkApiResponse.error(401, ErrorKeyConstants.AUTH_INVALID_CREDENTIALS, Map.of("username", username), "Incorrect password");
             }
 
             String token = jwtUtil.generateToken(user.getId(), user.getUserPin(), user.getUsername(), user.getRole());
@@ -67,7 +69,7 @@ public class LoginController {
             return MkApiResponse.success(response);
         } catch (Exception e) {
             logger.error("Login error - username: {}, error: {}", username, e.getMessage());
-            return MkApiResponse.error(500, "Login failed");
+            return MkApiResponse.error(500, ErrorKeyConstants.COMMON_INTERNAL_SERVER_ERROR, Map.of(), "Login failed");
         }
     }
 
@@ -75,7 +77,7 @@ public class LoginController {
     public MkApiResponse<Boolean> logout(@RequestHeader(value = "Authorization", required = false) String token) {
         if (!StringUtils.hasText(token) || !token.startsWith("Bearer ")) {
             logger.warn("Logout failed - invalid token header");
-            return MkApiResponse.error(401, "Invalid Authorization header");
+            return MkApiResponse.error(401, ErrorKeyConstants.AUTH_INVALID_AUTH_HEADER, Map.of(), "Invalid Authorization header");
         }
         try {
             String userPin = jwtUtil.getUserPinFromToken(token.substring(7));
@@ -84,7 +86,7 @@ public class LoginController {
             return MkApiResponse.success("Logout successful", Boolean.TRUE);
         } catch (Exception e) {
             logger.error("Logout error - error: {}", e.getMessage());
-            return MkApiResponse.error(401, "Invalid token");
+            return MkApiResponse.error(401, ErrorKeyConstants.AUTH_INVALID_TOKEN, Map.of(), "Invalid token");
         }
     }
 
@@ -98,19 +100,19 @@ public class LoginController {
             String validationError = validateRegisterRequest(registerRequest);
             if (validationError != null) {
                 logger.warn("Register validation failed - {}", validationError);
-                return MkApiResponse.error(400, validationError);
+                return MkApiResponse.error(400, ErrorKeyConstants.COMMON_BAD_REQUEST, Map.of(), validationError);
             }
 
             String username = registerRequest.getUsername().trim();
             String email = registerRequest.getEmail().trim();
             if (userService.findByUsername(username) != null) {
                 logger.warn("Register failed - username already exists - username: {}", username);
-                return MkApiResponse.error(409, "Username already exists");
+                return MkApiResponse.error(409, ErrorKeyConstants.AUTH_USERNAME_EXISTS, Map.of("username", username), "Username already exists");
             }
 
             if (userService.findByEmail(email) != null) {
                 logger.warn("Register failed - email already exists - email: {}", email);
-                return MkApiResponse.error(409, "Email already exists");
+                return MkApiResponse.error(409, ErrorKeyConstants.AUTH_EMAIL_EXISTS, Map.of("email", email), "Email already exists");
             }
 
             User newUser = new User();
@@ -127,14 +129,14 @@ public class LoginController {
             boolean savedUser = userService.save(newUser);
             if (!savedUser) {
                 logger.error("Register failed during save - username: {}", username);
-                return MkApiResponse.error(500, "Register failed");
+                return MkApiResponse.error(500, ErrorKeyConstants.COMMON_INTERNAL_SERVER_ERROR, Map.of(), "Register failed");
             }
             logger.info("Register successful - userId: {}, username: {}", newUser.getId(), newUser.getUsername());
             return MkApiResponse.success(newUser);
         } catch (Exception e) {
             logger.error("Register error - username: {}, error: {}",
                     registerRequest == null ? null : registerRequest.getUsername(), e.getMessage());
-            return MkApiResponse.error(500, "Register failed");
+            return MkApiResponse.error(500, ErrorKeyConstants.COMMON_INTERNAL_SERVER_ERROR, Map.of(), "Register failed");
         }
     }
 
@@ -144,20 +146,20 @@ public class LoginController {
         logger.info("Processing Google login request");
         if (!StringUtils.hasText(idToken)) {
             logger.warn("Google login failed - empty idToken");
-            return MkApiResponse.error(400, "Google idToken is required");
+            return MkApiResponse.error(400, ErrorKeyConstants.AUTH_GOOGLE_ID_TOKEN_REQUIRED, Map.of(), "Google idToken is required");
         }
         try {
             LoginResponse response = loginService.verifyGoogleIdToken(idToken);
             if (response == null) {
-                return MkApiResponse.error(401, "Google login failed");
+                return MkApiResponse.error(401, ErrorKeyConstants.AUTH_GOOGLE_LOGIN_FAILED, Map.of(), "Google login failed");
             }
             return MkApiResponse.success(response);
         } catch (IllegalArgumentException e) {
             logger.warn("Google login rejected - reason: {}", e.getMessage());
-            return MkApiResponse.error(401, e.getMessage());
+            return MkApiResponse.error(401, ErrorKeyConstants.AUTH_GOOGLE_LOGIN_FAILED, Map.of(), e.getMessage());
         } catch (Exception e) {
             logger.error("Google login error - error: {}", e.getMessage());
-            return MkApiResponse.error(500, "Google login failed");
+            return MkApiResponse.error(500, ErrorKeyConstants.COMMON_INTERNAL_SERVER_ERROR, Map.of(), "Google login failed");
         }
     }
 

@@ -1,5 +1,6 @@
 package com.loqiu.moneykeeper.service.impl;
 
+import com.loqiu.moneykeeper.constant.NotificationEventKeyConstants;
 import com.loqiu.moneykeeper.entity.Budget;
 import com.loqiu.moneykeeper.entity.BudgetRule;
 import com.loqiu.moneykeeper.entity.LedgerMember;
@@ -97,9 +98,18 @@ class BudgetServiceImplTest {
         budgetService.syncThresholdNotificationsForLedgerRecord(31L, null, record);
 
         ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
-        verify(notificationService).sendWarningMessage(eq(7L), eq("Budget alert"), messageCaptor.capture());
+        ArgumentCaptor<Map<String, Object>> payloadCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(notificationService).sendWarningMessage(
+                eq(7L),
+                eq("Budget alert"),
+                messageCaptor.capture(),
+                eq(NotificationEventKeyConstants.BUDGET_THRESHOLD_REACHED),
+                payloadCaptor.capture()
+        );
         assertTrue(messageCaptor.getValue().contains("50.00%"));
         assertTrue(messageCaptor.getValue().contains("40.00%"));
+        assertEquals(41L, payloadCaptor.getValue().get("budgetId"));
+        assertEquals("March Coffee Budget", payloadCaptor.getValue().get("budgetName"));
         assertEquals("50.00", redisTemplate.getValue(notificationKey));
     }
 
@@ -130,7 +140,7 @@ class BudgetServiceImplTest {
 
         budgetService.syncThresholdNotificationsForLedgerRecord(31L, null, record);
 
-        verify(notificationService, never()).sendWarningMessage(any(), any(), any());
+        verify(notificationService, never()).sendWarningMessage(any(), any(), any(), any(), any());
         assertFalse(redisTemplate.containsKey(notificationKey));
     }
 

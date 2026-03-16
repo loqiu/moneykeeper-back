@@ -2,6 +2,7 @@ package com.loqiu.moneykeeper.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
 import com.loqiu.moneykeeper.dto.LedgerInviteDTO;
 import com.loqiu.moneykeeper.dto.LedgerMemberDTO;
 import com.loqiu.moneykeeper.dto.LedgerSummaryDTO;
@@ -305,7 +306,7 @@ public class LedgerServiceImpl extends ServiceImpl<LedgerMapper, Ledger> impleme
 
         User invitedUser = findUserByEmail(normalizedEmail);
         if (invitedUser != null && hasActiveMembership(ledgerId, invitedUser.getId())) {
-            throw new ConflictException("User is already a member of this ledger");
+            throw new ConflictException("User is already a member of this ledger", ErrorKeyConstants.LEDGER_INVITE_ALREADY_MEMBER);
         }
 
         QueryWrapper<LedgerInvite> inviteQuery = new QueryWrapper<>();
@@ -366,7 +367,7 @@ public class LedgerServiceImpl extends ServiceImpl<LedgerMapper, Ledger> impleme
 
         String currentUserEmail = normalizeEmail(currentUser.getEmail());
         if (!currentUserEmail.equalsIgnoreCase(normalizeEmail(invite.getInvitedEmail()))) {
-            throw new ForbiddenException("You do not have permission to accept this invite");
+            throw new ForbiddenException("You do not have permission to accept this invite", ErrorKeyConstants.LEDGER_INVITE_EMAIL_MISMATCH);
         }
 
         Ledger ledger = requireLedger(invite.getLedgerId());

@@ -2,6 +2,7 @@ package com.loqiu.moneykeeper.controller;
 
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
+import com.loqiu.moneykeeper.constant.ErrorKeyConstants;
 import com.loqiu.moneykeeper.dto.MoneyKeeperDTO;
 import com.loqiu.moneykeeper.exception.BadRequestException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
@@ -154,6 +155,6 @@ public class ExcelDownloadController {
     }
 
     private String normalizeRecordType(String value) {
-        return RecordTypeNormalizer.normalizeOptional(value, "Record type must be income or expense");
+        return RecordTypeNormalizer.normalizeOptional(value, "Record type must be income or expense", ErrorKeyConstants.RECORD_INVALID_TYPE);
     }
 }
