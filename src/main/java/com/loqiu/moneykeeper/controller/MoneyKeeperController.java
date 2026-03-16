@@ -13,6 +13,7 @@ import com.loqiu.moneykeeper.service.CategoryService;
 import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
 import com.loqiu.moneykeeper.service.RecordSearchService;
+import com.loqiu.moneykeeper.util.RecordTypeNormalizer;
 import com.loqiu.moneykeeper.util.RequestAuthUtil;
 import com.loqiu.moneykeeper.vo.MoneyKeeperCreateRequest;
 import com.loqiu.moneykeeper.vo.MoneyKeeperUpdateRequest;
@@ -61,13 +62,14 @@ public class MoneyKeeperController {
 
         Long targetUserId = resolveTargetUserId(request, createRequest.getUserId());
         Category category = requireAccessibleCategory(createRequest.getCategoryId(), targetUserId);
-        validateRecordType(createRequest.getType(), category.getType());
+        String normalizedRecordType = normalizeRecordType(createRequest.getType(), true);
+        validateRecordType(normalizedRecordType, category.getType());
 
         MoneyKeeper record = new MoneyKeeper();
         record.setUserId(targetUserId);
         record.setLedgerId(resolveLedgerId(category, targetUserId, null));
         record.setCategoryId(createRequest.getCategoryId());
-        record.setType(createRequest.getType().trim());
+        record.setType(normalizedRecordType);
         record.setAmount(createRequest.getAmount());
         record.setTransactionDate(createRequest.getTransactionDate());
         record.setNotes(trimToNull(createRequest.getNotes()));
@@ -107,7 +109,7 @@ public class MoneyKeeperController {
         logger.info("Getting records by userId and type - targetUserId: {}, type: {}, currentUserId: {}", userId, type, RequestAuthUtil.getCurrentUserId(request));
         requireSelfOrAdmin(request, userId, "You do not have permission to access this user's records");
         validateRequiredText(type, "Record type is required");
-        return ResponseEntity.ok(moneyKeeperService.findByUserIdAndType(userId, type.trim()));
+        return ResponseEntity.ok(moneyKeeperService.findByUserIdAndType(userId, normalizeRecordType(type, true)));
     }
 
     @Operation(summary = "Update record")
@@ -226,7 +228,7 @@ public class MoneyKeeperController {
         QueryWrapper<MoneyKeeper> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("user_id", userId);
         if (StringUtils.hasText(type)) {
-            queryWrapper.eq("type", type.trim());
+            queryWrapper.eq("type", normalizeRecordType(type, false));
         }
         if (startDate != null && endDate != null) {
             queryWrapper.between("transaction_date", startDate, endDate);
@@ -310,8 +312,9 @@ public class MoneyKeeperController {
     }
 
     private void validateRecordType(String requestedType, String categoryType) {
-        String normalizedRequestedType = requestedType.trim();
-        if (!normalizedRequestedType.equals(categoryType)) {
+        String normalizedRequestedType = normalizeRecordType(requestedType, true);
+        String normalizedCategoryType = normalizeRecordType(categoryType, true);
+        if (!normalizedRequestedType.equals(normalizedCategoryType)) {
             throw new BadRequestException("Record type must match the selected category type");
         }
     }
@@ -369,10 +372,8 @@ public class MoneyKeeperController {
     }
 
     private String resolveRecordType(String requestedType, String existingType) {
-        if (!StringUtils.hasText(requestedType)) {
-            return existingType;
-        }
-        return requestedType.trim();
+        String normalizedType = normalizeRecordType(requestedType, false);
+        return normalizedType == null ? existingType : normalizedType;
     }
 
     private BigDecimal resolveAmount(BigDecimal requestedAmount, BigDecimal existingAmount) {
@@ -387,6 +388,13 @@ public class MoneyKeeperController {
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizeRecordType(String value, boolean required) {
+        if (!required) {
+            return RecordTypeNormalizer.normalizeOptional(value, "Record type must be income or expense");
+        }
+        return RecordTypeNormalizer.normalizeRequired(value, "Record type is required", "Record type must be income or expense");
     }
 }
 

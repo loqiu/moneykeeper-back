@@ -9,6 +9,7 @@ import com.loqiu.moneykeeper.exception.ResourceNotFoundException;
 import com.loqiu.moneykeeper.service.CategoryService;
 import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.RecordSearchService;
+import com.loqiu.moneykeeper.util.RecordTypeNormalizer;
 import com.loqiu.moneykeeper.util.RequestAuthUtil;
 import com.loqiu.moneykeeper.vo.CategoryRequest;
 import jakarta.servlet.http.HttpServletRequest;
@@ -51,7 +52,7 @@ public class CategoryController {
         category.setName(categoryRequest.getName().trim());
         category.setIcon(categoryRequest.getIcon().trim());
         category.setColor(categoryRequest.getColor().trim());
-        category.setType(categoryRequest.getType().trim());
+        category.setType(normalizeCategoryType(categoryRequest.getType(), true));
 
         categoryService.insertCategory(category);
         logger.info("Category created successfully - userId: {}, categoryName: {}", id, category.getName());
@@ -79,7 +80,7 @@ public class CategoryController {
         validateRequiredText(type, "Category type is required");
 
         QueryWrapper<Category> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("type", type.trim())
+        queryWrapper.eq("type", normalizeCategoryType(type, true))
                 .orderByDesc("created_at");
         if (!RequestAuthUtil.isAdmin(request)) {
             queryWrapper.eq("user_id", RequestAuthUtil.requireCurrentUserId(request));
@@ -107,7 +108,7 @@ public class CategoryController {
         updatedCategory.setName(resolveString(categoryRequest.getName(), existingCategory.getName()));
         updatedCategory.setIcon(resolveString(categoryRequest.getIcon(), existingCategory.getIcon()));
         updatedCategory.setColor(resolveString(categoryRequest.getColor(), existingCategory.getColor()));
-        updatedCategory.setType(resolveString(categoryRequest.getType(), existingCategory.getType()));
+        updatedCategory.setType(resolveCategoryType(categoryRequest.getType(), existingCategory.getType()));
         updatedCategory.setCreatedAt(existingCategory.getCreatedAt());
         updatedCategory.setDeletedAt(existingCategory.getDeletedAt());
         updatedCategory.setDeletedTime(existingCategory.getDeletedTime());
@@ -159,7 +160,7 @@ public class CategoryController {
 
         QueryWrapper<Category> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("user_id", userId)
-                .eq("type", type.trim())
+                .eq("type", normalizeCategoryType(type, true))
                 .orderByDesc("created_at");
         return ResponseEntity.ok(categoryService.list(queryWrapper));
     }
@@ -173,7 +174,7 @@ public class CategoryController {
         validateRequiredText(type, "Category type is required");
 
         QueryWrapper<Category> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("type", type.trim())
+        queryWrapper.eq("type", normalizeCategoryType(type, true))
                 .orderByDesc("created_at");
 
         if (RequestAuthUtil.isAdmin(request)) {
@@ -251,5 +252,17 @@ public class CategoryController {
             return existingValue;
         }
         return requestedValue.trim();
+    }
+
+    private String resolveCategoryType(String requestedValue, String existingValue) {
+        String normalizedType = RecordTypeNormalizer.normalizeOptional(requestedValue, "Category type must be income or expense");
+        return normalizedType == null ? existingValue : normalizedType;
+    }
+
+    private String normalizeCategoryType(String value, boolean required) {
+        if (!required) {
+            return RecordTypeNormalizer.normalizeOptional(value, "Category type must be income or expense");
+        }
+        return RecordTypeNormalizer.normalizeRequired(value, "Category type is required", "Category type must be income or expense");
     }
 }

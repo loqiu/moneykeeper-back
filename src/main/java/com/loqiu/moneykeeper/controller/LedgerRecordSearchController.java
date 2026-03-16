@@ -5,6 +5,7 @@ import com.loqiu.moneykeeper.exception.BadRequestException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
 import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.RecordSearchService;
+import com.loqiu.moneykeeper.util.RecordTypeNormalizer;
 import com.loqiu.moneykeeper.util.RequestAuthUtil;
 import com.loqiu.moneykeeper.vo.RecordSearchRequest;
 import jakarta.servlet.http.HttpServletRequest;
@@ -55,7 +56,7 @@ public class LedgerRecordSearchController {
                 ledgerId,
                 searchRequest.getUserId(),
                 searchRequest.getQuery(),
-                searchRequest.getType(),
+                RecordTypeNormalizer.normalizeOptional(searchRequest.getType(), "Record type must be income or expense"),
                 searchRequest.getCategoryId(),
                 searchRequest.getCategoryName(),
                 searchRequest.getStartDate(),

@@ -109,6 +109,39 @@ class LedgerRecordControllerTest {
     }
 
     @Test
+    void createRecordShouldNormalizeChineseType() throws Exception {
+        Category category = new Category();
+        category.setId(8L);
+        category.setLedgerId(31L);
+        category.setUserId(1L);
+        category.setType("expense");
+
+        when(ledgerService.hasActiveMembership(31L, 2L)).thenReturn(true);
+        when(categoryService.getById(8L)).thenReturn(category);
+        when(moneyKeeperService.insertMoneyKeeper(any(MoneyKeeper.class))).thenAnswer(invocation -> {
+            MoneyKeeper record = invocation.getArgument(0);
+            record.setId(12L);
+            return true;
+        });
+
+        mockMvc.perform(post("/api/ledgers/31/records")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 2L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user")
+                        .content("""
+                                {
+                                  "categoryId": 8,
+                                  "type": "支出",
+                                  "amount": 18.50,
+                                  "transactionDate": "2026-03-11",
+                                  "notes": "Team lunch"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.type").value("expense"));
+    }
+
+    @Test
     void updateRecordShouldRejectForeignMember() throws Exception {
         MoneyKeeper existingRecord = new MoneyKeeper();
         existingRecord.setId(11L);

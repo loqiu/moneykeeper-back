@@ -20,6 +20,7 @@ import com.loqiu.moneykeeper.service.BudgetService;
 import com.loqiu.moneykeeper.service.CategoryService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
 import com.loqiu.moneykeeper.service.NotificationService;
+import com.loqiu.moneykeeper.util.RecordTypeNormalizer;
 import com.loqiu.moneykeeper.vo.BudgetRequest;
 import com.loqiu.moneykeeper.vo.BudgetRuleRequest;
 import org.apache.logging.log4j.LogManager;
@@ -448,10 +449,15 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
         }
 
         QueryWrapper<Budget> queryWrapper = new QueryWrapper<>();
+        String normalizedRecordType = RecordTypeNormalizer.normalizeRequired(
+                record.getType(),
+                "Budget type is required",
+                "Budget type must be income or expense"
+        );
         queryWrapper.eq("ledger_id", ledgerId)
                 .eq("budget_year", record.getTransactionDate().getYear())
                 .eq("budget_month", record.getTransactionDate().getMonthValue())
-                .eq("type", record.getType().trim());
+                .eq("type", normalizedRecordType);
         if (record.getCategoryId() == null) {
             queryWrapper.isNull("category_id");
         } else {
@@ -620,14 +626,7 @@ public class BudgetServiceImpl extends ServiceImpl<BudgetMapper, Budget> impleme
     }
 
     private String normalizeType(String type) {
-        if (!StringUtils.hasText(type)) {
-            throw new BadRequestException("Budget type is required");
-        }
-        String normalizedType = type.trim().toLowerCase();
-        if (!"income".equals(normalizedType) && !"expense".equals(normalizedType)) {
-            throw new BadRequestException("Budget type must be income or expense");
-        }
-        return normalizedType;
+        return RecordTypeNormalizer.normalizeRequired(type, "Budget type is required", "Budget type must be income or expense");
     }
 
     private BigDecimal validateAmount(BigDecimal amount) {

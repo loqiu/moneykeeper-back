@@ -12,6 +12,7 @@ import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
 import com.loqiu.moneykeeper.service.RecordEventDispatcher;
 import com.loqiu.moneykeeper.service.RecordSearchService;
+import com.loqiu.moneykeeper.util.RecordTypeNormalizer;
 import com.loqiu.moneykeeper.util.RequestAuthUtil;
 import com.loqiu.moneykeeper.vo.MoneyKeeperCreateRequest;
 import com.loqiu.moneykeeper.vo.MoneyKeeperUpdateRequest;
@@ -73,7 +74,7 @@ public class LedgerRecordController {
             queryWrapper.eq("category_id", categoryId);
         }
         if (StringUtils.hasText(type)) {
-            queryWrapper.eq("type", type.trim());
+            queryWrapper.eq("type", normalizeRecordType(type, false));
         }
         if (startDate != null) {
             queryWrapper.ge("transaction_date", startDate);
@@ -101,13 +102,14 @@ public class LedgerRecordController {
 
         Long targetUserId = resolveTargetUserId(request, ledgerId, createRequest.getUserId());
         Category category = requireLedgerCategory(ledgerId, createRequest.getCategoryId());
-        validateRecordType(createRequest.getType(), category.getType());
+        String normalizedRecordType = normalizeRecordType(createRequest.getType(), true);
+        validateRecordType(normalizedRecordType, category.getType());
 
         MoneyKeeper record = new MoneyKeeper();
         record.setUserId(targetUserId);
         record.setLedgerId(ledgerId);
         record.setCategoryId(category.getId());
-        record.setType(createRequest.getType().trim());
+        record.setType(normalizedRecordType);
         record.setAmount(createRequest.getAmount());
         record.setTransactionDate(createRequest.getTransactionDate());
         record.setNotes(trimToNull(createRequest.getNotes()));
@@ -300,8 +302,9 @@ public class LedgerRecordController {
     }
 
     private void validateRecordType(String requestedType, String categoryType) {
-        String normalizedRequestedType = requestedType.trim();
-        if (!normalizedRequestedType.equals(categoryType)) {
+        String normalizedRequestedType = normalizeRecordType(requestedType, true);
+        String normalizedCategoryType = normalizeRecordType(categoryType, true);
+        if (!normalizedRequestedType.equals(normalizedCategoryType)) {
             throw new BadRequestException("Record type must match the selected category type");
         }
     }
@@ -319,10 +322,8 @@ public class LedgerRecordController {
     }
 
     private String resolveRecordType(String requestedType, String existingType) {
-        if (!StringUtils.hasText(requestedType)) {
-            return existingType;
-        }
-        return requestedType.trim();
+        String normalizedType = normalizeRecordType(requestedType, false);
+        return normalizedType == null ? existingType : normalizedType;
     }
 
     private BigDecimal resolveAmount(BigDecimal requestedAmount, BigDecimal existingAmount) {
@@ -337,5 +338,12 @@ public class LedgerRecordController {
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizeRecordType(String value, boolean required) {
+        if (!required) {
+            return RecordTypeNormalizer.normalizeOptional(value, "Record type must be income or expense");
+        }
+        return RecordTypeNormalizer.normalizeRequired(value, "Record type is required", "Record type must be income or expense");
     }
 }

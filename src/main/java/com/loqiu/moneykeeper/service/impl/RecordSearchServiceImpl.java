@@ -18,6 +18,7 @@ import com.loqiu.moneykeeper.entity.MoneyKeeper;
 import com.loqiu.moneykeeper.exception.ServiceUnavailableException;
 import com.loqiu.moneykeeper.mapper.MoneyKeeperMapper;
 import com.loqiu.moneykeeper.service.RecordSearchService;
+import com.loqiu.moneykeeper.util.RecordTypeNormalizer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.ObjectProvider;
@@ -413,7 +414,8 @@ public class RecordSearchServiceImpl implements RecordSearchService {
             boolQuery.filter(filter -> filter.term(term -> term.field("categoryId").value(categoryId)));
         }
         if (StringUtils.hasText(type)) {
-            boolQuery.filter(filter -> filter.term(term -> term.field("type.keyword").value(type.trim())));
+            boolQuery.filter(filter -> filter.term(term -> term.field("type.keyword")
+                    .value(RecordTypeNormalizer.normalizeRequired(type, "Record type is required", "Record type must be income or expense"))));
         }
         if (StringUtils.hasText(categoryName)) {
             boolQuery.filter(filter -> filter.term(term -> term.field("categoryName.keyword").value(categoryName.trim())));

@@ -99,4 +99,19 @@ class LedgerRecordSearchControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("End date cannot be before start date"));
     }
+
+    @Test
+    void searchLedgerRecordsShouldNormalizeChineseTypeFilter() throws Exception {
+        when(ledgerService.hasActiveMembership(31L, 2L)).thenReturn(true);
+        when(recordSearchService.searchLedgerRecords(31L, null, null, "expense", null, null, null, null, 20))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/ledgers/31/search/records")
+                        .param("type", "支出")
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 2L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user"))
+                .andExpect(status().isOk());
+
+        verify(recordSearchService).searchLedgerRecords(31L, null, null, "expense", null, null, null, null, 20);
+    }
 }

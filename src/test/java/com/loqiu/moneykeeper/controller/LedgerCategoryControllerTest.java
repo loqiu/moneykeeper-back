@@ -119,4 +119,29 @@ class LedgerCategoryControllerTest {
 
         verify(categoryService).insertCategory(any(Category.class));
     }
+
+    @Test
+    void createCategoryShouldNormalizeChineseType() throws Exception {
+        when(ledgerService.hasManagementPermission(31L, 1L)).thenReturn(true);
+        when(categoryService.insertCategory(any(Category.class))).thenAnswer(invocation -> {
+            Category category = invocation.getArgument(0);
+            category.setId(7L);
+            return true;
+        });
+
+        mockMvc.perform(post("/api/ledgers/31/categories")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 1L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user")
+                        .content("""
+                                {
+                                  "name": "Food",
+                                  "icon": "utensils",
+                                  "color": "#FF6B6B",
+                                  "type": "支出"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.type").value("expense"));
+    }
 }

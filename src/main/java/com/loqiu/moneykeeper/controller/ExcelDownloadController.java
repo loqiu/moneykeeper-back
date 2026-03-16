@@ -7,6 +7,7 @@ import com.loqiu.moneykeeper.exception.BadRequestException;
 import com.loqiu.moneykeeper.exception.ForbiddenException;
 import com.loqiu.moneykeeper.service.LedgerService;
 import com.loqiu.moneykeeper.service.MoneyKeeperService;
+import com.loqiu.moneykeeper.util.RecordTypeNormalizer;
 import com.loqiu.moneykeeper.util.RequestAuthUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -55,7 +56,7 @@ public class ExcelDownloadController {
 
         requireSelfOrAdmin(request, userId);
         validateOptionalDateRange(startDate, endDate);
-        String normalizedType = trimToNull(type);
+        String normalizedType = normalizeRecordType(type);
 
         try {
             response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -94,7 +95,7 @@ public class ExcelDownloadController {
 
         requireLedgerViewer(request, ledgerId);
         validateOptionalDateRange(startDate, endDate);
-        String normalizedType = trimToNull(type);
+        String normalizedType = normalizeRecordType(type);
 
         try {
             response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -150,5 +151,9 @@ public class ExcelDownloadController {
             return null;
         }
         return value.trim();
+    }
+
+    private String normalizeRecordType(String value) {
+        return RecordTypeNormalizer.normalizeOptional(value, "Record type must be income or expense");
     }
 }

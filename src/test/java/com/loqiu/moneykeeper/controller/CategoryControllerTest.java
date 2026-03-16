@@ -84,6 +84,35 @@ class CategoryControllerTest {
     }
 
     @Test
+    void createCategoryShouldNormalizeChineseType() throws Exception {
+        when(ledgerService.getOrCreatePersonalLedger(1L)).thenReturn(Ledger.builder().id(21L).build());
+        when(categoryService.insertCategory(any(Category.class))).thenAnswer(invocation -> {
+            Category category = invocation.getArgument(0);
+            category.setId(6L);
+            return true;
+        });
+
+        mockMvc.perform(post("/api/categories/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 1L)
+                        .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user")
+                        .content("""
+                                {
+                                  "name": "Food",
+                                  "icon": "utensils",
+                                  "color": "#FF6B6B",
+                                  "type": "支出"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.type").value("expense"));
+
+        ArgumentCaptor<Category> captor = ArgumentCaptor.forClass(Category.class);
+        verify(categoryService).insertCategory(captor.capture());
+        assertEquals("expense", captor.getValue().getType());
+    }
+
+    @Test
     void updateCategoryShouldRefreshOnlyThatCategoryRecords() throws Exception {
         Category existingCategory = new Category();
         existingCategory.setId(5L);
