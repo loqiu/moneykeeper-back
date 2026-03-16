@@ -131,7 +131,7 @@ class MoneyKeeperControllerTest {
     }
 
     @Test
-    void createRecordShouldNormalizeChineseType() throws Exception {
+    void createRecordShouldRejectChineseType() throws Exception {
         Category category = new Category();
         category.setId(5L);
         category.setUserId(1L);
@@ -139,11 +139,6 @@ class MoneyKeeperControllerTest {
         category.setType("expense");
 
         when(categoryService.getById(5L)).thenReturn(category);
-        when(moneyKeeperService.insertMoneyKeeper(any(com.loqiu.moneykeeper.entity.MoneyKeeper.class))).thenAnswer(invocation -> {
-            com.loqiu.moneykeeper.entity.MoneyKeeper record = invocation.getArgument(0);
-            record.setId(12L);
-            return true;
-        });
 
         mockMvc.perform(post("/api/records")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -157,8 +152,8 @@ class MoneyKeeperControllerTest {
                                   "transactionDate": "2026-03-08"
                                 }
                                 """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.type").value("expense"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Record type must be income or expense"));
     }
 
     @Test

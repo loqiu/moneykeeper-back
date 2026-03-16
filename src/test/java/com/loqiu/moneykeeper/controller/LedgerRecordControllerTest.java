@@ -109,7 +109,7 @@ class LedgerRecordControllerTest {
     }
 
     @Test
-    void createRecordShouldNormalizeChineseType() throws Exception {
+    void createRecordShouldRejectChineseType() throws Exception {
         Category category = new Category();
         category.setId(8L);
         category.setLedgerId(31L);
@@ -118,11 +118,6 @@ class LedgerRecordControllerTest {
 
         when(ledgerService.hasActiveMembership(31L, 2L)).thenReturn(true);
         when(categoryService.getById(8L)).thenReturn(category);
-        when(moneyKeeperService.insertMoneyKeeper(any(MoneyKeeper.class))).thenAnswer(invocation -> {
-            MoneyKeeper record = invocation.getArgument(0);
-            record.setId(12L);
-            return true;
-        });
 
         mockMvc.perform(post("/api/ledgers/31/records")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -137,8 +132,8 @@ class LedgerRecordControllerTest {
                                   "notes": "Team lunch"
                                 }
                                 """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.type").value("expense"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Record type must be income or expense"));
     }
 
     @Test

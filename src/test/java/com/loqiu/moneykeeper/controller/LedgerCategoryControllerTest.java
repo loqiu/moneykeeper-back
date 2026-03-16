@@ -121,13 +121,8 @@ class LedgerCategoryControllerTest {
     }
 
     @Test
-    void createCategoryShouldNormalizeChineseType() throws Exception {
+    void createCategoryShouldRejectChineseType() throws Exception {
         when(ledgerService.hasManagementPermission(31L, 1L)).thenReturn(true);
-        when(categoryService.insertCategory(any(Category.class))).thenAnswer(invocation -> {
-            Category category = invocation.getArgument(0);
-            category.setId(7L);
-            return true;
-        });
 
         mockMvc.perform(post("/api/ledgers/31/categories")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -141,7 +136,7 @@ class LedgerCategoryControllerTest {
                                   "type": "支出"
                                 }
                                 """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.type").value("expense"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Category type must be income or expense"));
     }
 }

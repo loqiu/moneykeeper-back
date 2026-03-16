@@ -45,7 +45,7 @@ Authorization: Bearer <token>
 
 - 后端标准枚举值只有两个：`income`、`expense`
 - 前端做 i18 时，应该自行做文案映射，不要把中文文案直接当成请求枚举值
-- 兼容旧请求时，后端会接受 `收入`、`支出` 并自动归一化为 `income`、`expense`
+- 请求中的 `type` 也必须是 `income`、`expense`，传中文 `收入`、`支出` 会直接返回 `400`
 - 后端返回值统一只会返回 `income`、`expense`
 
 ### 1.6 三种返回形态

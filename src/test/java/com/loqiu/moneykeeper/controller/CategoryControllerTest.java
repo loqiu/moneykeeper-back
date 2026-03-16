@@ -84,13 +84,8 @@ class CategoryControllerTest {
     }
 
     @Test
-    void createCategoryShouldNormalizeChineseType() throws Exception {
+    void createCategoryShouldRejectChineseType() throws Exception {
         when(ledgerService.getOrCreatePersonalLedger(1L)).thenReturn(Ledger.builder().id(21L).build());
-        when(categoryService.insertCategory(any(Category.class))).thenAnswer(invocation -> {
-            Category category = invocation.getArgument(0);
-            category.setId(6L);
-            return true;
-        });
 
         mockMvc.perform(post("/api/categories/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -104,12 +99,8 @@ class CategoryControllerTest {
                                   "type": "支出"
                                 }
                                 """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.type").value("expense"));
-
-        ArgumentCaptor<Category> captor = ArgumentCaptor.forClass(Category.class);
-        verify(categoryService).insertCategory(captor.capture());
-        assertEquals("expense", captor.getValue().getType());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Category type must be income or expense"));
     }
 
     @Test

@@ -101,17 +101,14 @@ class LedgerRecordSearchControllerTest {
     }
 
     @Test
-    void searchLedgerRecordsShouldNormalizeChineseTypeFilter() throws Exception {
+    void searchLedgerRecordsShouldRejectChineseTypeFilter() throws Exception {
         when(ledgerService.hasActiveMembership(31L, 2L)).thenReturn(true);
-        when(recordSearchService.searchLedgerRecords(31L, null, null, "expense", null, null, null, null, 20))
-                .thenReturn(List.of());
 
         mockMvc.perform(get("/api/ledgers/31/search/records")
                         .param("type", "支出")
                         .requestAttr(RequestAuthUtil.CURRENT_USER_ID, 2L)
                         .requestAttr(RequestAuthUtil.CURRENT_USER_ROLE, "user"))
-                .andExpect(status().isOk());
-
-        verify(recordSearchService).searchLedgerRecords(31L, null, null, "expense", null, null, null, null, 20);
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Record type must be income or expense"));
     }
 }

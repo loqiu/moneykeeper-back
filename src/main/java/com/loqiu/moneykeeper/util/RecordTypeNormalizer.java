@@ -9,8 +9,6 @@ public final class RecordTypeNormalizer {
 
     private static final String TYPE_INCOME = "income";
     private static final String TYPE_EXPENSE = "expense";
-    private static final String TYPE_INCOME_CN = "收入";
-    private static final String TYPE_EXPENSE_CN = "支出";
 
     private RecordTypeNormalizer() {
     }
@@ -30,13 +28,6 @@ public final class RecordTypeNormalizer {
     }
 
     private static String normalizeInternal(String value, String invalidMessage) {
-        if (TYPE_INCOME_CN.equals(value)) {
-            return TYPE_INCOME;
-        }
-        if (TYPE_EXPENSE_CN.equals(value)) {
-            return TYPE_EXPENSE;
-        }
-
         String normalizedValue = value.toLowerCase(Locale.ROOT);
         if (TYPE_INCOME.equals(normalizedValue)) {
             return TYPE_INCOME;
@@ -44,7 +35,6 @@ public final class RecordTypeNormalizer {
         if (TYPE_EXPENSE.equals(normalizedValue)) {
             return TYPE_EXPENSE;
         }
-
         throw new BadRequestException(invalidMessage);
     }
 }
